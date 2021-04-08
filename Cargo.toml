@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "juno_derive",
+    "juno",
+    "juno_warp",
+]
