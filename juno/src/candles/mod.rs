@@ -63,11 +63,11 @@ pub enum Error {
         current: u64,
         end: u64,
     },
-    #[error("{0}")]
+    #[error(transparent)]
     Storage(#[from] storage::Error),
-    #[error("{0}")]
+    #[error(transparent)]
     Exchange(#[from] exchange::Error),
-    #[error("{0}")]
+    #[error(transparent)]
     Reqwest(#[from] reqwest::Error),
 }
 

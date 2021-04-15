@@ -48,9 +48,9 @@ impl EvaluationAggregation {
 
 #[derive(Error, Debug)]
 pub enum EvaluationError {
-    #[error("{0}")]
+    #[error(transparent)]
     Storage(#[from] storage::Error),
-    #[error("{0}")]
+    #[error(transparent)]
     Chandler(#[from] candles::Error),
 }
 
