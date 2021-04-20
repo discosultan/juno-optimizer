@@ -11,7 +11,7 @@ ezing = "0.2"
 futures = "0.3"
 juno_derive = {version = "0.1", path = "../juno_derive"}
 ndarray = "0.15"
-ndarray-stats = "0.4"
+ndarray-stats = "0.5"
 once_cell = "1"
 rand = "0.8"
 rayon = "1"
