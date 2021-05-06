@@ -79,7 +79,7 @@ impl CoreStatistics {
         }
 
         let (mean_position_profit, mean_position_duration, mean_drawdown) =
-            if summary.positions.len() > 0 {
+            if !summary.positions.is_empty() {
                 (
                     profit / summary.positions.len() as f64,
                     total_position_duration / summary.positions.len() as u64,
@@ -156,11 +156,11 @@ pub fn get_return_over_max_drawdown(summary: &TradingSummary) -> f64 {
 
     let roi = profit / summary.quote;
 
-    return if max_drawdown == 0.0 {
+    if max_drawdown == 0.0 {
         0.0
     } else {
         roi / max_drawdown
-    };
+    }
 }
 
 #[cfg(test)]

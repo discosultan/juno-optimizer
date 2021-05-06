@@ -33,10 +33,7 @@ impl BufferedCandle {
         Self {
             interval,
             buffer_interval,
-            buffer_interval_offset: interval_offsets
-                .get(&buffer_interval)
-                .map(|i| *i)
-                .unwrap_or(0),
+            buffer_interval_offset: interval_offsets.get(&buffer_interval).copied().unwrap_or(0),
             enabled,
             buffer_candle: None,
         }

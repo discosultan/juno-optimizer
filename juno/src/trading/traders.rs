@@ -412,8 +412,8 @@ fn close_short_position(
             [Fill {
                 price,
                 size,
-                fee,
                 quote,
+                fee,
             }],
             reason,
         );

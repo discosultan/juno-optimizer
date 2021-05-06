@@ -85,7 +85,7 @@ static EASINGS: Lazy<HashMap<Easing, fn(f64) -> f64>> = Lazy::new(|| {
     .collect()
 });
 
-static EASING_CHOICES: Lazy<Vec<Easing>> = Lazy::new(|| EASINGS.keys().map(|&k| k).collect());
+static EASING_CHOICES: Lazy<Vec<Easing>> = Lazy::new(|| EASINGS.keys().copied().collect());
 
 pub trait EasingExt {
     fn gen_easing(&mut self) -> Easing;

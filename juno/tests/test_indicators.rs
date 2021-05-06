@@ -4,8 +4,8 @@ use serde::Deserialize;
 use std::{collections::HashMap, fs::File};
 
 static DATA: Lazy<HashMap<String, IndicatorData>> = Lazy::new(|| {
-    let file =
-        File::open("./tests/data/indicators_2021-04-08.yaml").expect("unable to open indicators data file");
+    let file = File::open("./tests/data/indicators_2021-04-08.yaml")
+        .expect("unable to open indicators data file");
     serde_yaml::from_reader(file).expect("unable to deserialize indicator data")
 });
 

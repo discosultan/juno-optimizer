@@ -1,5 +1,5 @@
-use juno_derive::*;
 use juno::genetics::Chromosome;
+use juno_derive::*;
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 

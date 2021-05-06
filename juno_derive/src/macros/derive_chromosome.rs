@@ -95,12 +95,12 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
             quote! { Option<#field_ty> }
         }
     });
-    let ctx_generic_ty = if generic_ty_idents.len() == 0 {
+    let ctx_generic_ty = if generic_ty_idents.is_empty() {
         quote! {}
     } else {
         quote! { <#(#generic_ty_idents),*> }
     };
-    let ctx_generic_ty_ctx = if generic_ty_idents.len() == 0 {
+    let ctx_generic_ty_ctx = if generic_ty_idents.is_empty() {
         quote! {}
     } else {
         quote! { <#(#generic_ty_idents::Context),*> }

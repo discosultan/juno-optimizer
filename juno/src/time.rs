@@ -54,7 +54,7 @@ fn interval_to_string(value: u64) -> String {
     let mut remainder = value;
     for (letter, factor) in INTERVAL_FACTORS.iter() {
         let quotient = remainder / factor;
-        remainder = remainder % factor;
+        remainder %= factor;
         if quotient > 0 {
             result.push_str(&format!("{}{}", quotient, letter));
         }
@@ -62,7 +62,7 @@ fn interval_to_string(value: u64) -> String {
             break;
         }
     }
-    if result == "" {
+    if result.is_empty() {
         result.push_str("0ms");
     }
     result
@@ -121,11 +121,8 @@ where
     S: Serializer,
 {
     match value {
-        Some(value) => match value {
-            Some(value) => serializer.serialize_str(&interval_to_string(*value)),
-            None => serializer.serialize_none(),
-        },
-        None => serializer.serialize_none(),
+        Some(Some(value)) => serializer.serialize_str(&interval_to_string(*value)),
+        _ => serializer.serialize_none(),
     }
 }
 

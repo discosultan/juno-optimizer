@@ -17,12 +17,11 @@ static EXPECTED_STATS: Lazy<HashMap<String, CoreStatistics>> = Lazy::new(|| {
     serde_json::from_reader(file).expect("unable to deserialize json")
 });
 
-static EXCHANGE_INFO: Lazy<ExchangeInfo> =
-    Lazy::new(|| {
-        let path = "./tests/data/binance_exchange_info.json";
-        let file = File::open(path).expect("unable to open file");
-        serde_json::from_reader(file).expect("unable to deserialize json")
-    });
+static EXCHANGE_INFO: Lazy<ExchangeInfo> = Lazy::new(|| {
+    let path = "./tests/data/binance_exchange_info.json";
+    let file = File::open(path).expect("unable to open file");
+    serde_json::from_reader(file).expect("unable to deserialize json")
+});
 
 static CANDLES: Lazy<Vec<Candle>> = Lazy::new(|| {
     let path = "./tests/data/binance_eth-btc_1d_2018-01-01_2021-01-01_candles.json";

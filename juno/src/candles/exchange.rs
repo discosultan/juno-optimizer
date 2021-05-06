@@ -44,13 +44,13 @@ pub fn map_interval_offsets(_exchange: &str) -> HashMap<u64, u64> {
 pub fn get_interval_offset(_exchange: &str, interval: u64) -> u64 {
     BINANCE_INTERVAL_OFFSETS
         .get(&interval)
-        .map(|interval| *interval)
+        .copied()
         .unwrap_or(0)
 }
 
-const CANDLES_URL: &'static str = "https://api.binance.com/api/v3/klines";
+const CANDLES_URL: &str = "https://api.binance.com/api/v3/klines";
 const CANDLES_LIMIT: u64 = 1000; // Max possible candles per request.
-const CANDLES_LIMIT_STR: &'static str = "1000";
+const CANDLES_LIMIT_STR: &str = "1000";
 
 type KlinesResponse = (
     u64,

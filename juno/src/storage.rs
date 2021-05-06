@@ -47,16 +47,19 @@ pub async fn get_exchange_info(exchange: &str) -> Result<ExchangeInfo> {
 // TODO: We could implement sqlx encode and decode traits for timestamp and decimal types.
 // However, because we are not using local types, we cannot impl the traits. Could be solved with
 // a newtype pattern.
-pub fn get_u64<'r, I>(row: &'r SqliteRow, index: I) -> u64
+pub fn get_u64<I>(row: &SqliteRow, index: I) -> u64
 where
     I: ColumnIndex<SqliteRow>,
 {
     row.get::<i64, I>(index) as u64
 }
 
-pub fn get_f64<'r, I>(row: &'r SqliteRow, index: I) -> f64
+pub fn get_f64<I>(row: &SqliteRow, index: I) -> f64
 where
     I: ColumnIndex<SqliteRow>,
 {
-    std::str::from_utf8(&row.get::<Vec<u8>, I>(index)).unwrap().parse::<f64>().unwrap()
+    std::str::from_utf8(&row.get::<Vec<u8>, I>(index))
+        .unwrap()
+        .parse::<f64>()
+        .unwrap()
 }

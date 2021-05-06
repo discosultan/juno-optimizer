@@ -73,7 +73,7 @@ pub fn generate_missing_spans(
     result
 }
 
-pub fn page(start: u64, end: u64, interval: u64, limit: u64) -> impl Iterator<Item=(u64, u64)> {
+pub fn page(start: u64, end: u64, interval: u64, limit: u64) -> impl Iterator<Item = (u64, u64)> {
     let total_size = (end - start) / interval;
     let max_count = limit * interval;
     let page_size = (total_size as f64 / limit as f64).ceil() as u64;
