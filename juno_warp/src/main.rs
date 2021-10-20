@@ -1,7 +1,8 @@
 mod routes;
 
 use serde::Serialize;
-use std::{convert::Infallible, result::Result};
+use std::{convert::Infallible, env, result::Result};
+use tracing_subscriber;
 use warp::{
     http::{header, Method, StatusCode},
     Filter, Rejection, Reply,
@@ -14,6 +15,13 @@ struct ErrorResponse {
 
 #[tokio::main]
 async fn main() {
+    // Set default log level to info.
+    if env::var("RUST_LOG").is_err() {
+        env::set_var("RUST_LOG", "info")
+    }
+    // Install global collector configured based on RUST_LOG env var.
+    tracing_subscriber::fmt::init();
+
     let hello = warp::path::end().map(|| "hello world");
 
     let routes = hello
@@ -27,9 +35,8 @@ async fn main() {
         .allow_methods(&[Method::GET, Method::POST, Method::PUT, Method::DELETE])
         .allow_headers(&[header::CONTENT_TYPE]);
 
-    let port = 3030;
+    let port = 4040;
 
-    println!("listening on port {}", port);
     warp::serve(routes.with(cors))
         .run(([127, 0, 0, 1], port))
         .await;

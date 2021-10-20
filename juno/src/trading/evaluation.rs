@@ -66,7 +66,6 @@ struct SymbolCtx {
 pub struct BasicEvaluation {
     symbol_ctxs: Vec<SymbolCtx>,
     quote: f64,
-    interval_offsets: HashMap<u64, u64>,
     stats_interval: u64,
     evaluation_statistic: EvaluationStatistic,
     evaluation_aggregation_fn: fn(f64, f64) -> f64,
@@ -91,27 +90,18 @@ impl BasicEvaluation {
                     try_join_all(intervals.iter().map(|&interval| async move {
                         Ok::<_, candles::Error>((
                             interval,
-                            candles::list_candles(exchange, &symbol, interval, start, end).await?,
+                            candles::list_candles(exchange, &symbol, interval, start, end, false)
+                                .await?,
                         ))
                     }));
 
                 // Stats base.
-                let stats_candles_task = candles::list_candles_fill_missing(
-                    exchange,
-                    &symbol,
-                    stats_interval,
-                    start,
-                    end,
-                );
+                let stats_candles_task =
+                    candles::list_candles(exchange, &symbol, stats_interval, start, end, true);
 
                 // Stats quote (optional).
-                let stats_fiat_candles_task = candles::list_candles_fill_missing(
-                    "binance",
-                    "btc-usdt",
-                    stats_interval,
-                    start,
-                    end,
-                );
+                let stats_fiat_candles_task =
+                    candles::list_candles("binance", "btc-usdt", stats_interval, start, end, true);
 
                 let (interval_candles, stats_candles, stats_fiat_candles) = try_join3(
                     interval_candles_task,
@@ -143,7 +133,6 @@ impl BasicEvaluation {
 
         Ok(Self {
             symbol_ctxs,
-            interval_offsets: candles::map_interval_offsets(exchange),
             stats_interval,
             quote,
             evaluation_statistic,
@@ -169,7 +158,6 @@ impl BasicEvaluation {
             &symbol_ctx.fees,
             &symbol_ctx.filters,
             &symbol_ctx.borrow_info,
-            &self.interval_offsets,
             2,
             self.quote,
             true,

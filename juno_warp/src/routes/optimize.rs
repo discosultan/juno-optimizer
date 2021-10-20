@@ -12,7 +12,7 @@ use juno::{
     },
     statistics::Statistics,
     storage,
-    time::{deserialize_timestamp, DAY_MS},
+    time::DAY_MS,
     trading::{
         trade, BasicEvaluation, EvaluationAggregation, EvaluationStatistic, TradingParams,
         TradingParamsContext, TradingSummary,
@@ -31,9 +31,7 @@ struct Params {
     seed: Option<u64>,
 
     exchange: String,
-    #[serde(deserialize_with = "deserialize_timestamp")]
     start: u64,
-    #[serde(deserialize_with = "deserialize_timestamp")]
     end: u64,
     quote: f64,
     training_symbols: Vec<String>,
@@ -203,11 +201,11 @@ async fn backtest(
         chromosome.trader.interval,
         args.start,
         args.end,
+        false,
     )
     .map_err(Error::from);
 
     let (exchange_info, candles) = try_join(exchange_info_task, candles_task).await?;
-    let interval_offsets = candles::map_interval_offsets(&args.exchange);
 
     Ok(trade(
         &chromosome,
@@ -215,7 +213,6 @@ async fn backtest(
         &exchange_info.fees[symbol],
         &exchange_info.filters[symbol],
         &exchange_info.borrow_info[symbol][symbol.base_asset()],
-        &interval_offsets,
         2,
         args.quote,
         true,
@@ -227,21 +224,23 @@ async fn get_stats(args: &Params, symbol: &str, summary: &TradingSummary) -> Res
     let stats_interval = DAY_MS;
 
     // Stats base.
-    let stats_candles_task = candles::list_candles_fill_missing(
+    let stats_candles_task = candles::list_candles(
         &args.exchange,
         symbol,
         stats_interval,
         args.start,
         args.end,
+        true,
     );
 
     // Stats quote (optional).
-    let stats_fiat_candles_task = candles::list_candles_fill_missing(
+    let stats_fiat_candles_task = candles::list_candles(
         "binance",
         "btc-usdt",
         stats_interval,
         args.start,
         args.end,
+        true,
     );
 
     let (stats_candles, stats_fiat_candles) =

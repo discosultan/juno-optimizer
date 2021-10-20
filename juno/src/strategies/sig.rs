@@ -1,10 +1,6 @@
 use super::{Signal, SignalParams, SignalParamsContext, Strategy, StrategyMeta};
 use crate::{
     genetics::Chromosome,
-    time::{
-        deserialize_interval_option, deserialize_interval_option_option, serialize_interval_option,
-        serialize_interval_option_option,
-    },
     utils::{combine, BufferedCandle, MidTrend, MidTrendPolicy, MidTrendPolicyExt, Persistence},
     Advice, Candle,
 };
@@ -21,8 +17,6 @@ pub struct SigParams {
     pub persistence: u32,
     pub mid_trend_policy: MidTrendPolicy,
     #[serde(default)]
-    #[serde(deserialize_with = "deserialize_interval_option")]
-    #[serde(serialize_with = "serialize_interval_option")]
     pub buffer_interval: Option<u64>,
 }
 
@@ -59,11 +53,7 @@ impl Sig {
             sig,
             mid_trend,
             persistence,
-            buffered_candle: BufferedCandle::new(
-                meta.interval,
-                meta.interval_offsets,
-                params.buffer_interval,
-            ),
+            buffered_candle: BufferedCandle::new(meta.interval, params.buffer_interval),
         }
     }
 }

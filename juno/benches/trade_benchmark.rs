@@ -47,7 +47,6 @@ fn trade_benchmark(c: &mut Criterion) {
         daily_interest_rate: 0.001,
         limit: 1.0,
     };
-    let interval_offsets = HashMap::new();
     c.bench_function("trade", |b| {
         b.iter(|| {
             trading::trade(
@@ -64,7 +63,6 @@ fn trade_benchmark(c: &mut Criterion) {
                 &fees,
                 &filters,
                 &borrow_info,
-                &interval_offsets,
                 2,
                 1.0,
                 true,

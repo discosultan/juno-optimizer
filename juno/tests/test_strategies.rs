@@ -121,7 +121,6 @@ fn test_strategy(strategy: StrategyParams, name: &str) {
         &EXCHANGE_INFO.fees["eth-btc"],
         &EXCHANGE_INFO.filters["eth-btc"],
         &EXCHANGE_INFO.borrow_info["eth-btc"]["eth"],
-        &HashMap::new(),
         2,
         1.0,
         true,

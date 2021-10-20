@@ -9,10 +9,6 @@ use crate::{
     stop_loss::{StopLossParams, StopLossParamsContext},
     strategies::{StrategyParams, StrategyParamsContext},
     take_profit::{TakeProfitParams, TakeProfitParamsContext},
-    time::{
-        deserialize_interval, deserialize_intervals, serialize_interval, serialize_intervals,
-        serialize_timestamp,
-    },
     Fill,
 };
 use juno_derive::*;
@@ -57,16 +53,12 @@ pub struct TradingParams {
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct TraderParams {
-    #[serde(serialize_with = "serialize_interval")]
-    #[serde(deserialize_with = "deserialize_interval")]
     pub interval: u64,
     pub missed_candle_policy: MissedCandlePolicy,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct TraderParamsContext {
-    #[serde(deserialize_with = "deserialize_intervals")]
-    #[serde(serialize_with = "serialize_intervals")]
     pub intervals: Vec<u64>,
     pub missed_candle_policies: Vec<MissedCandlePolicy>,
 }
@@ -195,11 +187,9 @@ pub enum Position {
 
 #[derive(Deserialize, Serialize)]
 pub struct LongPosition {
-    #[serde(serialize_with = "serialize_timestamp")]
     pub open_time: u64,
     pub open_fills: [Fill; 1],
 
-    #[serde(serialize_with = "serialize_timestamp")]
     pub close_time: u64,
     pub close_fills: [Fill; 1],
     pub close_reason: CloseReason,
@@ -233,12 +223,10 @@ impl LongPosition {
 
 #[derive(Deserialize, Serialize)]
 pub struct ShortPosition {
-    #[serde(serialize_with = "serialize_timestamp")]
     pub open_time: u64,
     pub collateral: f64,
     pub borrowed: f64,
     pub open_fills: [Fill; 1],
-    #[serde(serialize_with = "serialize_timestamp")]
     pub close_time: u64,
     pub close_fills: [Fill; 1],
     pub close_reason: CloseReason,
@@ -275,9 +263,7 @@ impl ShortPosition {
 pub struct TradingSummary {
     pub positions: Vec<Position>,
 
-    #[serde(serialize_with = "serialize_timestamp")]
     pub start: u64,
-    #[serde(serialize_with = "serialize_timestamp")]
     pub end: u64,
     pub quote: f64,
 }

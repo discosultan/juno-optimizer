@@ -1,11 +1,12 @@
 use chrono::prelude::*;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serializer};
 use std::{
     collections::HashMap,
     time::{SystemTime, UNIX_EPOCH},
 };
+
+use crate::math::{ceil_multiple, ceil_multiple_offset, floor_multiple, floor_multiple_offset};
 
 pub const SEC_MS: u64 = 1000;
 pub const MIN_MS: u64 = 60_000;
@@ -14,6 +15,8 @@ pub const DAY_MS: u64 = 86_400_000;
 pub const WEEK_MS: u64 = 604_800_000;
 pub const MONTH_MS: u64 = 2_629_746_000;
 pub const YEAR_MS: u64 = 31_556_952_000;
+
+const WEEK_OFFSET_MS: u64 = 345_600_000;
 
 // Interval.
 
@@ -88,111 +91,6 @@ impl IntervalIntExt for u64 {
     }
 }
 
-pub fn serialize_interval<S>(value: &u64, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    serializer.serialize_str(&interval_to_string(*value))
-}
-
-pub fn deserialize_interval<'de, D>(deserializer: D) -> Result<u64, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let representation: String = Deserialize::deserialize(deserializer)?;
-    Ok(str_to_interval(&representation))
-}
-
-pub fn serialize_interval_option<S>(value: &Option<u64>, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    match value {
-        Some(value) => serializer.serialize_str(&interval_to_string(*value)),
-        None => serializer.serialize_none(),
-    }
-}
-
-pub fn serialize_interval_option_option<S>(
-    value: &Option<Option<u64>>,
-    serializer: S,
-) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    match value {
-        Some(Some(value)) => serializer.serialize_str(&interval_to_string(*value)),
-        _ => serializer.serialize_none(),
-    }
-}
-
-pub fn deserialize_interval_option<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let representation: Option<String> = Deserialize::deserialize(deserializer)?;
-    Ok(representation.map(|repr| str_to_interval(&repr)))
-}
-
-pub fn deserialize_interval_option_option<'de, D>(
-    deserializer: D,
-) -> Result<Option<Option<u64>>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let representation: Option<Option<String>> = Deserialize::deserialize(deserializer)?;
-    Ok(representation.map(|repr1| repr1.map(|repr2| str_to_interval(&repr2))))
-}
-
-pub fn serialize_intervals<S>(values: &[u64], serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    let mut seq = serializer.serialize_seq(Some(values.len()))?;
-    for interval in values {
-        seq.serialize_element(&interval_to_string(*interval))?;
-    }
-    seq.end()
-}
-
-pub fn deserialize_intervals<'de, D>(deserializer: D) -> Result<Vec<u64>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let representations: Vec<String> = Deserialize::deserialize(deserializer)?;
-    Ok(representations
-        .iter()
-        .map(|repr| str_to_interval(repr))
-        .collect())
-}
-
-pub fn serialize_intervals_option<S>(
-    value: &Option<Vec<u64>>,
-    serializer: S,
-) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    match value {
-        Some(value) => {
-            let mut seq = serializer.serialize_seq(Some(value.len()))?;
-            for interval in value {
-                seq.serialize_element(&interval_to_string(*interval))?;
-            }
-            seq.end()
-        }
-        None => serializer.serialize_none(),
-    }
-}
-
-pub fn deserialize_intervals_option<'de, D>(deserializer: D) -> Result<Option<Vec<u64>>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let representations: Option<Vec<String>> = Deserialize::deserialize(deserializer)?;
-    Ok(representations.map(|reprs| reprs.iter().map(|repr| str_to_interval(repr)).collect()))
-}
-
 // Timestamp.
 
 pub fn timestamp() -> u64 {
@@ -229,6 +127,51 @@ fn timestamp_to_string(value: u64) -> String {
     datetime.format("%Y-%m-%dT%H:%M:%S%:z").to_string()
 }
 
+fn datetime_timestamp_ms(dt: DateTime<Utc>) -> u64 {
+    dt.timestamp_millis() as u64
+}
+
+fn datetime_utcfromtimestamp_ms(timestamp: u64) -> DateTime<Utc> {
+    Utc.timestamp_millis(timestamp as i64)
+}
+
+fn floor_timestamp(timestamp: u64, interval: u64) -> u64 {
+    if interval < WEEK_MS {
+        return floor_multiple(timestamp, interval);
+    }
+    if interval == WEEK_MS {
+        return floor_multiple_offset(timestamp, interval, WEEK_OFFSET_MS);
+    }
+    if interval == MONTH_MS {
+        let dt = datetime_utcfromtimestamp_ms(timestamp);
+        return datetime_timestamp_ms(
+            dt.date()
+                .with_day(1)
+                .unwrap()
+                .and_time(NaiveTime::from_hms(0, 0, 0))
+                .unwrap(),
+        );
+    }
+    unimplemented!();
+}
+
+fn ceil_timestamp(timestamp: u64, interval: u64) -> u64 {
+    if interval < WEEK_MS {
+        return ceil_multiple(timestamp, interval);
+    }
+    if interval == WEEK_MS {
+        return ceil_multiple_offset(timestamp, interval, WEEK_OFFSET_MS);
+    }
+    if interval == MONTH_MS {
+        let dt = datetime_utcfromtimestamp_ms(timestamp);
+        return datetime_timestamp_ms(DateTime::<Utc>::from_utc(
+            NaiveDate::from_ymd(dt.year(), dt.month() + 1, 1).and_hms(0, 0, 0),
+            Utc,
+        ));
+    }
+    unimplemented!();
+}
+
 pub trait TimestampStrExt {
     fn to_timestamp(&self) -> u64;
 }
@@ -241,45 +184,22 @@ impl TimestampStrExt for str {
 
 pub trait TimestampIntExt {
     fn to_timestamp_repr(&self) -> String;
+    fn ceil_timestamp(&self, interval: u64) -> Self;
+    fn floor_timestamp(&self, interval: u64) -> Self;
 }
 
 impl TimestampIntExt for u64 {
     fn to_timestamp_repr(&self) -> String {
         timestamp_to_string(*self)
     }
-}
 
-pub fn serialize_timestamp<S>(value: &u64, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    serializer.serialize_str(&timestamp_to_string(*value))
-}
-
-pub fn deserialize_timestamp<'de, D>(deserializer: D) -> Result<u64, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let representation: String = Deserialize::deserialize(deserializer)?;
-    Ok(str_to_timestamp(&representation))
-}
-
-pub fn serialize_timestamp_option<S>(value: &Option<u64>, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    match value {
-        Some(value) => serializer.serialize_str(&timestamp_to_string(*value)),
-        None => serializer.serialize_none(),
+    fn ceil_timestamp(&self, interval: u64) -> Self {
+        ceil_timestamp(*self, interval)
     }
-}
 
-pub fn deserialize_timestamp_option<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let representation: Option<String> = Deserialize::deserialize(deserializer)?;
-    Ok(representation.map(|repr| str_to_timestamp(&repr)))
+    fn floor_timestamp(&self, interval: u64) -> Self {
+        floor_timestamp(*self, interval)
+    }
 }
 
 #[cfg(test)]
@@ -313,5 +233,25 @@ mod tests {
     #[test]
     fn test_timestamp_from_repr() {
         assert_eq!("2019-01-01".to_timestamp(), 1546300800000);
+    }
+
+    #[test]
+    fn test_ceil_timestamp() {
+        assert_eq!(1.ceil_timestamp(SEC_MS), SEC_MS);
+        assert_eq!(1001.ceil_timestamp(DAY_MS), DAY_MS);
+        // "2020-01-01T00:00:00Z" -> 2020-01-06T00:00:00Z
+        assert_eq!(1577836800000.ceil_timestamp(WEEK_MS), 1578268800000);
+        // 2020-01-02T00:00:00Z -> 2020-02-01T00:00:00Z
+        assert_eq!(1577923200000.ceil_timestamp(MONTH_MS), 1580515200000);
+    }
+
+    #[test]
+    fn test_floor_timestamp() {
+        assert_eq!(1.floor_timestamp(SEC_MS), 0);
+        assert_eq!(1001.floor_timestamp(DAY_MS), 0);
+        // 2020-01-01T00:00:00Z -> 2019-12-30T00:00:00Z
+        assert_eq!(1577836800000.floor_timestamp(WEEK_MS), 1577664000000);
+        // 2020-01-02T00:00:00Z -> 2020-01-01T00:00:00Z
+        assert_eq!(1577923200000.floor_timestamp(MONTH_MS), 1577836800000);
     }
 }

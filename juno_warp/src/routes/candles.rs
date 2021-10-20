@@ -1,9 +1,6 @@
 use super::custom_reject;
 use futures::future::try_join_all;
-use juno::{
-    candles,
-    time::{deserialize_interval, deserialize_timestamp},
-};
+use juno::candles;
 use serde::Deserialize;
 use std::collections::HashMap;
 use warp::{body, reply, Filter, Rejection, Reply};
@@ -11,11 +8,8 @@ use warp::{body, reply, Filter, Rejection, Reply};
 #[derive(Debug, Deserialize)]
 struct Params {
     exchange: String,
-    #[serde(deserialize_with = "deserialize_interval")]
     interval: u64,
-    #[serde(deserialize_with = "deserialize_timestamp")]
     start: u64,
-    #[serde(deserialize_with = "deserialize_timestamp")]
     end: u64,
     symbols: Vec<String>,
 }
@@ -30,12 +24,13 @@ fn post() -> impl Filter<Extract = (reply::Json,), Error = Rejection> + Clone {
         .and_then(|args: Params| async move {
             let symbol_candle_tasks = args.symbols.iter().map(|symbol| (symbol, &args)).map(
                 |(symbol, args)| async move {
-                    let candles = candles::list_candles_fill_missing(
+                    let candles = candles::list_candles(
                         &args.exchange,
                         symbol,
                         args.interval,
                         args.start,
                         args.end,
+                        true,
                     )
                     .await?;
                     Ok::<_, candles::Error>((symbol, candles))

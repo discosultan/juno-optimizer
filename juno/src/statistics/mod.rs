@@ -5,7 +5,6 @@ pub use extended::*;
 
 use crate::{
     math::annualized,
-    time::{serialize_interval, serialize_timestamp},
     trading::{CloseReason, Position, TradingSummary},
 };
 use serde::{Deserialize, Serialize};
@@ -23,14 +22,11 @@ pub enum PositionType {
 pub struct PositionStatistics {
     #[serde(rename = "type")]
     pub type_: PositionType,
-    #[serde(serialize_with = "serialize_timestamp")]
     pub open_time: u64,
-    #[serde(serialize_with = "serialize_timestamp")]
     pub close_time: u64,
     pub cost: f64,
     pub gain: f64,
     pub profit: f64,
-    #[serde(serialize_with = "serialize_interval")]
     pub duration: u64,
     pub roi: f64,
     pub annualized_roi: f64,

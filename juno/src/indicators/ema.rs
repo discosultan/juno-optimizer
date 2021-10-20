@@ -5,6 +5,7 @@ use std::cmp::min;
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct EmaParams {
     pub period: u32,
+    #[serde(default)]
     pub smoothing: Option<f64>, // Calculated from period if None.
 }
 
