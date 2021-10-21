@@ -27,7 +27,6 @@ async fn main() {
     let routes = hello
         .or(routes::backtest())
         .or(routes::optimize())
-        .or(routes::candles())
         .recover(handle_rejection);
 
     let cors = warp::cors()

@@ -1,8 +1,10 @@
 use chrono::prelude::*;
 use once_cell::sync::Lazy;
 use regex::Regex;
+use serde::{de, Deserializer};
 use std::{
     collections::HashMap,
+    fmt,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -89,6 +91,39 @@ impl IntervalIntExt for u64 {
     fn to_interval_repr(self) -> String {
         interval_to_string(self)
     }
+}
+
+struct DeserializeInterval;
+
+impl<'de> de::Visitor<'de> for DeserializeInterval {
+    type Value = u64;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("an integer or a string")
+    }
+
+    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(v)
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        // TODO: Use errors instead of panic.
+        // // https://stackoverflow.com/a/37871403/1466456
+        Ok(str_to_interval(v))
+    }
+}
+
+pub fn deserialize_interval<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    deserializer.deserialize_any(DeserializeInterval)
 }
 
 // Timestamp.
@@ -200,6 +235,39 @@ impl TimestampIntExt for u64 {
     fn floor_timestamp(&self, interval: u64) -> Self {
         floor_timestamp(*self, interval)
     }
+}
+
+struct DeserializeTimestamp;
+
+impl<'de> de::Visitor<'de> for DeserializeTimestamp {
+    type Value = u64;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("an integer or a string")
+    }
+
+    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(v)
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        // TODO: Use errors instead of panic.
+        // https://stackoverflow.com/a/37871403/1466456
+        Ok(str_to_timestamp(v))
+    }
+}
+
+pub fn deserialize_timestamp<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    deserializer.deserialize_any(DeserializeTimestamp)
 }
 
 #[cfg(test)]

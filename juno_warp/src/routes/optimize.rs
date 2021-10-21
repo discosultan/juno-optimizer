@@ -12,7 +12,7 @@ use juno::{
     },
     statistics::Statistics,
     storage,
-    time::DAY_MS,
+    time::{deserialize_timestamp, DAY_MS},
     trading::{
         trade, BasicEvaluation, EvaluationAggregation, EvaluationStatistic, TradingParams,
         TradingParamsContext, TradingSummary,
@@ -31,7 +31,9 @@ struct Params {
     seed: Option<u64>,
 
     exchange: String,
+    #[serde(deserialize_with = "deserialize_timestamp")]
     start: u64,
+    #[serde(deserialize_with = "deserialize_timestamp")]
     end: u64,
     quote: f64,
     training_symbols: Vec<String>,

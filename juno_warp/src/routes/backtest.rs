@@ -8,7 +8,7 @@ use juno::{
     candles,
     statistics::Statistics,
     storage,
-    time::DAY_MS,
+    time::{deserialize_timestamp, DAY_MS},
     trading::{trade, TradingParams, TradingSummary},
     SymbolExt,
 };
@@ -21,7 +21,9 @@ use warp::{reply, Filter, Rejection, Reply};
 struct Params {
     exchange: String,
     symbols: Vec<String>,
+    #[serde(deserialize_with = "deserialize_timestamp")]
     start: u64,
+    #[serde(deserialize_with = "deserialize_timestamp")]
     end: u64,
     quote: f64,
     trading: TradingParams,

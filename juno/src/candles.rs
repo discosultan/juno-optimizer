@@ -1,4 +1,4 @@
-use crate::time::{IntervalIntExt, TimestampIntExt};
+use crate::time::{deserialize_timestamp, IntervalIntExt, TimestampIntExt};
 use serde::{Deserialize, Serialize};
 use std::ops::AddAssign;
 use thiserror::Error;
@@ -7,6 +7,7 @@ type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
 pub struct Candle {
+    #[serde(deserialize_with = "deserialize_timestamp")]
     pub time: u64,
     pub open: f64,
     pub high: f64,

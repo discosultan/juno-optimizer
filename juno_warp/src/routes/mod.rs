@@ -1,9 +1,7 @@
 mod backtest;
-mod candles;
 mod optimize;
 
 pub use backtest::routes as backtest;
-pub use candles::routes as candles;
 pub use optimize::routes as optimize;
 
 use std::fmt;

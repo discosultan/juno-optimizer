@@ -9,6 +9,7 @@ use crate::{
     stop_loss::{StopLossParams, StopLossParamsContext},
     strategies::{StrategyParams, StrategyParamsContext},
     take_profit::{TakeProfitParams, TakeProfitParamsContext},
+    time::deserialize_interval,
     Fill,
 };
 use juno_derive::*;
@@ -53,6 +54,7 @@ pub struct TradingParams {
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct TraderParams {
+    #[serde(deserialize_with = "deserialize_interval")]
     pub interval: u64,
     pub missed_candle_policy: MissedCandlePolicy,
 }
