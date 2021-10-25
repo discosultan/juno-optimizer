@@ -8,9 +8,8 @@ use juno::{
     candles,
     statistics::Statistics,
     storage,
-    time::{deserialize_timestamp, DAY_MS},
     trading::{trade, TradingParams, TradingSummary},
-    SymbolExt,
+    Interval, SymbolExt, Timestamp,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -21,10 +20,8 @@ use warp::{reply, Filter, Rejection, Reply};
 struct Params {
     exchange: String,
     symbols: Vec<String>,
-    #[serde(deserialize_with = "deserialize_timestamp")]
-    start: u64,
-    #[serde(deserialize_with = "deserialize_timestamp")]
-    end: u64,
+    start: Timestamp,
+    end: Timestamp,
     quote: f64,
     trading: TradingParams,
 }
@@ -100,7 +97,7 @@ async fn backtest(args: &Params, symbol: &str) -> Result<TradingSummary> {
 }
 
 async fn get_stats(args: &Params, symbol: &str, summary: &TradingSummary) -> Result<Statistics> {
-    let stats_interval = DAY_MS;
+    let stats_interval = Interval::DAY_MS;
     let start = args.start;
     let end = args.end;
 

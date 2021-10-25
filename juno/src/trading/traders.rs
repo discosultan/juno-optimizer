@@ -1,14 +1,13 @@
 use crate::{
-    math::{ceil_multiple, round_down, round_half_up},
+    math::{round_down, round_half_up},
     stop_loss::StopLoss,
     strategies::{Signal, StrategyMeta},
     take_profit::TakeProfit,
-    time,
     trading::{
         CloseReason, OpenLongPosition, OpenPosition, OpenShortPosition, Position, TradingSummary,
     },
     utils::Changed,
-    Advice, BorrowInfo, Candle, Fees, Fill, Filters,
+    Advice, BorrowInfo, Candle, Fees, Fill, Filters, Interval, Timestamp,
 };
 
 use super::{MissedCandlePolicy, TradingParams};
@@ -60,7 +59,7 @@ pub fn trade(
 
     let candles_len = candles.len();
     let (start, end) = if candles_len == 0 {
-        (0, interval)
+        (0.into(), Timestamp(interval.0))
     } else {
         (candles[0].time, candles[candles_len - 1].time + interval)
     };
@@ -83,7 +82,7 @@ pub fn trade(
             if missed_candle_policy == MissedCandlePolicy::Restart && diff >= two_interval {
                 state.strategy = params.strategy.construct(&strategy_meta);
             } else if missed_candle_policy == MissedCandlePolicy::Last && diff >= two_interval {
-                let num_missed = diff / interval - 1;
+                let num_missed = diff.0 / interval.0 - 1;
                 for i in 1..=num_missed {
                     let missed_candle = Candle {
                         time: last_candle.time + i * interval,
@@ -171,7 +170,7 @@ fn tick(
     filters: &Filters,
     borrow_info: &BorrowInfo,
     margin_multiplier: u32,
-    interval: u64,
+    interval: Interval,
     long: bool,
     short: bool,
     candle: &Candle,
@@ -282,7 +281,7 @@ fn try_open_long_position(
     state: &mut State,
     fees: &Fees,
     filters: &Filters,
-    time: u64,
+    time: Timestamp,
     price: f64,
 ) -> Result<(), &'static str> {
     let size = filters.size.round_down(state.quote / price);
@@ -312,7 +311,7 @@ fn close_long_position(
     summary: &mut TradingSummary,
     fees: &Fees,
     filters: &Filters,
-    time: u64,
+    time: Timestamp,
     price: f64,
     reason: CloseReason,
 ) {
@@ -348,7 +347,7 @@ fn try_open_short_position(
     filters: &Filters,
     borrow_info: &BorrowInfo,
     margin_multiplier: u32,
-    time: u64,
+    time: Timestamp,
     price: f64,
 ) -> Result<(), &'static str> {
     let collateral_size = filters.size.round_down(state.quote / price);
@@ -385,14 +384,14 @@ fn close_short_position(
     fees: &Fees,
     filters: &Filters,
     borrow_info: &BorrowInfo,
-    time: u64,
+    time: Timestamp,
     price: f64,
     reason: CloseReason,
 ) {
     if let Some(OpenPosition::Short(pos)) = state.open_position.take() {
         let borrowed = pos.borrowed;
 
-        let duration = ceil_multiple(time - pos.time, time::HOUR_MS) / time::HOUR_MS;
+        let duration = (time - pos.time).ceil(Interval::HOUR_MS).0 / Interval::HOUR_MS.0;
         let hourly_interest_rate = borrow_info.daily_interest_rate / 24.0;
         let interest = borrowed * duration as f64 * hourly_interest_rate;
 

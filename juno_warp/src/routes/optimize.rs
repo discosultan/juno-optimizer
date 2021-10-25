@@ -12,12 +12,11 @@ use juno::{
     },
     statistics::Statistics,
     storage,
-    time::{deserialize_timestamp, DAY_MS},
     trading::{
         trade, BasicEvaluation, EvaluationAggregation, EvaluationStatistic, TradingParams,
         TradingParamsContext, TradingSummary,
     },
-    SymbolExt,
+    Interval, SymbolExt, Timestamp,
 };
 use serde::{Deserialize, Serialize};
 use std::{cmp::min, collections::HashMap};
@@ -31,10 +30,8 @@ struct Params {
     seed: Option<u64>,
 
     exchange: String,
-    #[serde(deserialize_with = "deserialize_timestamp")]
-    start: u64,
-    #[serde(deserialize_with = "deserialize_timestamp")]
-    end: u64,
+    start: Timestamp,
+    end: Timestamp,
     quote: f64,
     training_symbols: Vec<String>,
 
@@ -223,7 +220,7 @@ async fn backtest(
 }
 
 async fn get_stats(args: &Params, symbol: &str, summary: &TradingSummary) -> Result<Statistics> {
-    let stats_interval = DAY_MS;
+    let stats_interval = Interval::DAY_MS;
 
     // Stats base.
     let stats_candles_task = candles::list_candles(

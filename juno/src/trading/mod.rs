@@ -9,8 +9,7 @@ use crate::{
     stop_loss::{StopLossParams, StopLossParamsContext},
     strategies::{StrategyParams, StrategyParamsContext},
     take_profit::{TakeProfitParams, TakeProfitParamsContext},
-    time::deserialize_interval,
-    Fill,
+    Fill, Interval, Timestamp,
 };
 use juno_derive::*;
 use rand::prelude::*;
@@ -54,14 +53,13 @@ pub struct TradingParams {
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct TraderParams {
-    #[serde(deserialize_with = "deserialize_interval")]
-    pub interval: u64,
+    pub interval: Interval,
     pub missed_candle_policy: MissedCandlePolicy,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct TraderParamsContext {
-    pub intervals: Vec<u64>,
+    pub intervals: Vec<Interval>,
     pub missed_candle_policies: Vec<MissedCandlePolicy>,
 }
 
@@ -133,12 +131,12 @@ pub enum OpenPosition {
 }
 
 pub struct OpenLongPosition {
-    pub time: u64,
+    pub time: Timestamp,
     pub fills: [Fill; 1],
 }
 
 impl OpenLongPosition {
-    pub fn close(self, time: u64, fills: [Fill; 1], reason: CloseReason) -> LongPosition {
+    pub fn close(self, time: Timestamp, fills: [Fill; 1], reason: CloseReason) -> LongPosition {
         LongPosition {
             open_time: self.time,
             open_fills: self.fills,
@@ -159,14 +157,14 @@ impl OpenLongPosition {
 }
 
 pub struct OpenShortPosition {
-    pub time: u64,
+    pub time: Timestamp,
     pub collateral: f64,
     pub borrowed: f64,
     pub fills: [Fill; 1],
 }
 
 impl OpenShortPosition {
-    pub fn close(self, time: u64, fills: [Fill; 1], reason: CloseReason) -> ShortPosition {
+    pub fn close(self, time: Timestamp, fills: [Fill; 1], reason: CloseReason) -> ShortPosition {
         ShortPosition {
             open_time: self.time,
             collateral: self.collateral,
@@ -189,10 +187,10 @@ pub enum Position {
 
 #[derive(Deserialize, Serialize)]
 pub struct LongPosition {
-    pub open_time: u64,
+    pub open_time: Timestamp,
     pub open_fills: [Fill; 1],
 
-    pub close_time: u64,
+    pub close_time: Timestamp,
     pub close_fills: [Fill; 1],
     pub close_reason: CloseReason,
 }
@@ -218,18 +216,18 @@ impl LongPosition {
         self.gain() - self.cost()
     }
 
-    pub fn duration(&self) -> u64 {
+    pub fn duration(&self) -> Interval {
         self.close_time - self.open_time
     }
 }
 
 #[derive(Deserialize, Serialize)]
 pub struct ShortPosition {
-    pub open_time: u64,
+    pub open_time: Timestamp,
     pub collateral: f64,
     pub borrowed: f64,
     pub open_fills: [Fill; 1],
-    pub close_time: u64,
+    pub close_time: Timestamp,
     pub close_fills: [Fill; 1],
     pub close_reason: CloseReason,
 }
@@ -252,7 +250,7 @@ impl ShortPosition {
             - Fill::total_quote(&self.close_fills)
     }
 
-    pub fn duration(&self) -> u64 {
+    pub fn duration(&self) -> Interval {
         self.close_time - self.open_time
     }
 
@@ -265,13 +263,13 @@ impl ShortPosition {
 pub struct TradingSummary {
     pub positions: Vec<Position>,
 
-    pub start: u64,
-    pub end: u64,
+    pub start: Timestamp,
+    pub end: Timestamp,
     pub quote: f64,
 }
 
 impl TradingSummary {
-    pub fn new(start: u64, end: u64, quote: f64) -> Self {
+    pub fn new(start: Timestamp, end: Timestamp, quote: f64) -> Self {
         Self {
             positions: Vec::new(),
             start,

@@ -1,3 +1,4 @@
+
 pub mod candles;
 pub mod easing;
 pub mod filters;
@@ -10,11 +11,13 @@ pub mod stop_loss;
 pub mod storage;
 pub mod strategies;
 pub mod take_profit;
-pub mod time;
 pub mod trading;
 pub mod utils;
 
+mod primitives;
+
 pub use crate::{candles::Candle, filters::Filters};
+pub use primitives::*;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

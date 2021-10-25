@@ -1,7 +1,8 @@
 use super::SQRT_365;
 use crate::{
-    math::{floor_multiple, mean, std_deviation},
+    math::{mean, std_deviation},
     trading::{Position, TradingSummary},
+    Interval, Timestamp,
 };
 // use ndarray::prelude::*;
 // use ndarray_stats::CorrelationExt;
@@ -36,7 +37,7 @@ impl ExtendedStatistics {
         base_prices: &[f64],
         quote_prices: Option<&[f64]>,
         // _benchmark_g_returns: &[f64],
-        interval: u64,
+        interval: Interval,
     ) -> Self {
         let asset_performance = get_asset_performance(summary, base_prices, quote_prices, interval);
         let portfolio_performance = asset_performance
@@ -53,8 +54,8 @@ impl ExtendedStatistics {
 
 fn map_period_deltas_from_summary(
     summary: &TradingSummary,
-    interval: u64,
-) -> HashMap<u64, Vec<(Asset, f64)>> {
+    interval: Interval,
+) -> HashMap<Timestamp, Vec<(Asset, f64)>> {
     let mut period_deltas = HashMap::new();
     for pos in summary.positions.iter() {
         let (time, cost, base_gain, close_time, base_cost, gain) = match pos {
@@ -76,14 +77,14 @@ fn map_period_deltas_from_summary(
             ),
         };
         // Open.
-        let time = floor_multiple(time, interval);
+        let time = time.floor(interval);
         let deltas = period_deltas
             .entry(time)
             .or_insert_with(Vec::<(Asset, f64)>::new);
         deltas.push((Asset::Quote, -cost));
         deltas.push((Asset::Base, base_gain));
         // Close.
-        let time = floor_multiple(close_time, interval);
+        let time = close_time.floor(interval);
         let deltas = period_deltas
             .entry(time)
             .or_insert_with(Vec::<(Asset, f64)>::new);
@@ -97,13 +98,13 @@ fn get_asset_performance(
     summary: &TradingSummary,
     base_prices: &[f64],
     quote_prices: Option<&[f64]>,
-    interval: u64,
+    interval: Interval,
 ) -> Vec<HashMap<Asset, f64>> {
     let summary_period_deltas = map_period_deltas_from_summary(summary, interval);
 
-    let start = floor_multiple(summary.start, interval);
-    let end = floor_multiple(summary.end, interval);
-    let length = ((end - start) / interval) as usize;
+    let start = summary.start.floor(interval);
+    let end = summary.end.floor(interval);
+    let length = ((end - start).0 / interval.0) as usize;
 
     let mut asset_holdings = HashMap::new();
     asset_holdings.insert(Asset::Base, 0.0);
@@ -233,13 +234,13 @@ pub fn get_sharpe_ratio(
     summary: &TradingSummary,
     base_prices: &[f64],
     quote_prices: Option<&[f64]>,
-    interval: u64,
+    interval: Interval,
 ) -> f64 {
     let period_deltas = map_period_deltas_from_summary(summary, interval);
 
-    let start = floor_multiple(summary.start, interval);
-    let end = floor_multiple(summary.end, interval);
-    let length = ((end - start) / interval) as usize;
+    let start = summary.start.floor(interval);
+    let end = summary.end.floor(interval);
+    let length = ((end - start).0 / interval.0) as usize;
 
     let mut base_holding = 0.0;
     let mut quote_holding = summary.quote;
@@ -252,8 +253,8 @@ pub fn get_sharpe_ratio(
     let mut g_returns = Vec::with_capacity(length);
     let mut sum_g_returns = 0.0;
 
-    for (i, time) in (start..end).step_by(interval as usize).enumerate() {
-        let deltas = period_deltas.get(&time);
+    for (i, time) in (start.0..end.0).step_by(interval.0 as usize).enumerate() {
+        let deltas = period_deltas.get(&time.into());
         if let Some(deltas) = deltas {
             for (asset, size) in deltas {
                 match asset {
@@ -305,13 +306,13 @@ pub fn get_sortino_ratio(
     summary: &TradingSummary,
     base_prices: &[f64],
     quote_prices: Option<&[f64]>,
-    interval: u64,
+    interval: Interval,
 ) -> f64 {
     let period_deltas = map_period_deltas_from_summary(summary, interval);
 
-    let start = floor_multiple(summary.start, interval);
-    let end = floor_multiple(summary.end, interval);
-    let length = ((end - start) / interval) as usize;
+    let start = summary.start.floor(interval);
+    let end = summary.end.floor(interval);
+    let length = ((end - start).0 / interval.0) as usize;
 
     let mut base_holding = 0.0;
     let mut quote_holding = summary.quote;
@@ -326,8 +327,8 @@ pub fn get_sortino_ratio(
     let mut len_neg_g_returns = 0;
     let mut sum_neg_g_returns = 0.0;
 
-    for (i, time) in (start..end).step_by(interval as usize).enumerate() {
-        let deltas = period_deltas.get(&time);
+    for (i, time) in (start.0..end.0).step_by(interval.0 as usize).enumerate() {
+        let deltas = period_deltas.get(&time.into());
         if let Some(deltas) = deltas {
             for (asset, size) in deltas {
                 match asset {
@@ -396,10 +397,10 @@ mod tests {
         let summary = test_utils::get_populated_trading_summary();
         let base_prices = vec![1.0; 11];
 
-        let stats = ExtendedStatistics::compose(&summary, &base_prices, None, 1);
+        let stats = ExtendedStatistics::compose(&summary, &base_prices, None, 1.into());
 
-        let opt_sharpe = get_sharpe_ratio(&summary, &base_prices, None, 1);
-        let opt_sortino = get_sortino_ratio(&summary, &base_prices, None, 1);
+        let opt_sharpe = get_sharpe_ratio(&summary, &base_prices, None, 1.into());
+        let opt_sortino = get_sortino_ratio(&summary, &base_prices, None, 1.into());
 
         assert_eq!(stats.sharpe_ratio, opt_sharpe);
         assert_eq!(stats.sortino_ratio, opt_sortino);

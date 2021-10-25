@@ -2,9 +2,9 @@ use super::TradingParams;
 use crate::{
     candles,
     genetics::{Evaluation, Individual},
-    statistics, storage, time,
+    statistics, storage,
     trading::trade,
-    BorrowInfo, Candle, Fees, Filters, SymbolExt,
+    BorrowInfo, Candle, Fees, Filters, Interval, SymbolExt, Timestamp,
 };
 use futures::future::{try_join3, try_join_all};
 use rayon::prelude::*;
@@ -55,7 +55,7 @@ pub enum EvaluationError {
 }
 
 struct SymbolCtx {
-    interval_candles: HashMap<u64, Vec<Candle>>,
+    interval_candles: HashMap<Interval, Vec<Candle>>,
     fees: Fees,
     filters: Filters,
     borrow_info: BorrowInfo,
@@ -66,7 +66,7 @@ struct SymbolCtx {
 pub struct BasicEvaluation {
     symbol_ctxs: Vec<SymbolCtx>,
     quote: f64,
-    stats_interval: u64,
+    stats_interval: Interval,
     evaluation_statistic: EvaluationStatistic,
     evaluation_aggregation_fn: fn(f64, f64) -> f64,
 }
@@ -75,15 +75,15 @@ impl BasicEvaluation {
     pub async fn new(
         exchange: &str,
         symbols: &[String],
-        intervals: &[u64],
-        start: u64,
-        end: u64,
+        intervals: &[Interval],
+        start: Timestamp,
+        end: Timestamp,
         quote: f64,
         evaluation_statistic: EvaluationStatistic,
         evaluation_aggregation: EvaluationAggregation,
     ) -> Result<Self> {
         let exchange_info = storage::get_exchange_info(exchange).await?;
-        let stats_interval = time::DAY_MS;
+        let stats_interval = Interval::DAY_MS;
         let symbol_ctxs = try_join_all(symbols.iter().map(|symbol| (symbol, &exchange_info)).map(
             |(symbol, exchange_info)| async move {
                 let interval_candles_task =

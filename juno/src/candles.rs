@@ -1,4 +1,4 @@
-use crate::time::{deserialize_timestamp, IntervalIntExt, TimestampIntExt};
+use crate::{Interval, Timestamp};
 use serde::{Deserialize, Serialize};
 use std::ops::AddAssign;
 use thiserror::Error;
@@ -7,8 +7,7 @@ type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
 pub struct Candle {
-    #[serde(deserialize_with = "deserialize_timestamp")]
-    pub time: u64,
+    pub time: Timestamp,
     pub open: f64,
     pub high: f64,
     pub low: f64,
@@ -29,29 +28,29 @@ impl AddAssign<&Candle> for Candle {
 pub enum Error {
     #[error(
         "missing {exchange} {symbol} {} candle(s) from the start of the period; cannot fill; start {}, current {}",
-        .interval.to_interval_repr(),
-        .start.to_timestamp_repr(),
-        .current.to_timestamp_repr()
+        .interval,
+        .start,
+        .current,
     )]
     MissingStartCandles {
         exchange: String,
         symbol: String,
-        interval: u64,
-        start: u64,
-        current: u64,
+        interval: Interval,
+        start: Timestamp,
+        current: Timestamp,
     },
     #[error(
         "missing {exchange} {symbol} {} candle(s) from the end of the period; cannot fill; current {}, end {}",
-        .interval.to_interval_repr(),
-        .current.to_timestamp_repr(),
-        .end.to_timestamp_repr()
+        .interval,
+        .current,
+        .end,
     )]
     MissingEndCandles {
         exchange: String,
         symbol: String,
-        interval: u64,
-        current: u64,
-        end: u64,
+        interval: Interval,
+        current: Timestamp,
+        end: Timestamp,
     },
     #[error(transparent)]
     Reqwest(#[from] reqwest::Error),
@@ -60,9 +59,9 @@ pub enum Error {
 pub async fn list_candles(
     exchange: &str,
     symbol: &str,
-    interval: u64,
-    start: u64,
-    end: u64,
+    interval: Interval,
+    start: Timestamp,
+    end: Timestamp,
     fill_missing_with_last: bool,
 ) -> Result<Vec<Candle>> {
     let client = reqwest::Client::new();
@@ -71,9 +70,9 @@ pub async fn list_candles(
         .query(&[
             ("exchange", exchange),
             ("symbol", symbol),
-            ("interval", &interval.to_string()),
-            ("start", &start.to_string()),
-            ("end", &end.to_string()),
+            ("interval", &interval.0.to_string()),
+            ("start", &start.0.to_string()),
+            ("end", &end.0.to_string()),
             (
                 "fill_missing_with_last",
                 &fill_missing_with_last.to_string(),
@@ -96,7 +95,7 @@ pub fn candles_to_prices(candles: &[Candle], multipliers: Option<&[f64]>) -> Vec
     prices
 }
 
-pub async fn list_intervals(exchange: &str) -> Result<Vec<u64>> {
+pub async fn list_intervals(exchange: &str) -> Result<Vec<Interval>> {
     let client = reqwest::Client::new();
     let intervals = client
         .get("http://localhost:3030/candle_intervals")

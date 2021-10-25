@@ -2,7 +2,7 @@ use super::{Signal, SignalParams, SignalParamsContext, Strategy, StrategyMeta};
 use crate::{
     genetics::Chromosome,
     utils::{combine, BufferedCandle, MidTrend, MidTrendPolicy, MidTrendPolicyExt, Persistence},
-    Advice, Candle,
+    Advice, Candle, Interval,
 };
 use juno_derive::*;
 use rand::prelude::*;
@@ -17,7 +17,7 @@ pub struct SigParams {
     pub persistence: u32,
     pub mid_trend_policy: MidTrendPolicy,
     #[serde(default)]
-    pub buffer_interval: Option<u64>,
+    pub buffer_interval: Option<Interval>,
 }
 
 fn persistence(rng: &mut StdRng) -> u32 {
@@ -26,7 +26,7 @@ fn persistence(rng: &mut StdRng) -> u32 {
 fn mid_trend_policy(rng: &mut StdRng) -> MidTrendPolicy {
     rng.gen_mid_trend_policy()
 }
-fn buffer_interval(_rng: &mut StdRng) -> Option<u64> {
+fn buffer_interval(_rng: &mut StdRng) -> Option<Interval> {
     None
 }
 

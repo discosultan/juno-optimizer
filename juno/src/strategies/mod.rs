@@ -22,12 +22,12 @@ pub use single_ma::{SingleMA, SingleMAParams, SingleMAParamsContext};
 pub use stoch::{Stoch, StochParams, StochParamsContext};
 pub use triple_ma::{TripleMA, TripleMAParams, TripleMAParamsContext};
 
-use crate::{genetics::Chromosome, Advice, Candle};
+use crate::{genetics::Chromosome, Advice, Candle, Interval};
 use juno_derive::*;
 use serde::{Deserialize, Serialize};
 
 pub struct StrategyMeta {
-    pub interval: u64,
+    pub interval: Interval,
 }
 
 pub trait Strategy: Send + Sync {

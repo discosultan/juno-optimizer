@@ -4,9 +4,8 @@ use juno::{
     stop_loss::{self, StopLossParams},
     strategies::{self, StrategyParams},
     take_profit::{self, TakeProfitParams},
-    time::DAY_MS,
     trading::{trade, MissedCandlePolicy, TraderParams, TradingParams, TradingSummary},
-    Candle, ExchangeInfo,
+    Candle, ExchangeInfo, Interval,
 };
 use once_cell::sync::Lazy;
 use std::{collections::HashMap, fs::File};
@@ -113,7 +112,7 @@ fn test_strategy(strategy: StrategyParams, name: &str) {
             // stop_loss: StopLossParams::Noop(stop_loss::NoopParams {}),
             // take_profit: TakeProfitParams::Noop(take_profit::NoopParams {}),
             trader: TraderParams {
-                interval: DAY_MS,
+                interval: Interval::DAY_MS,
                 missed_candle_policy: MissedCandlePolicy::Ignore,
             },
         },

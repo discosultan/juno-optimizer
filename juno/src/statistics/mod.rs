@@ -6,6 +6,7 @@ pub use extended::*;
 use crate::{
     math::annualized,
     trading::{CloseReason, Position, TradingSummary},
+    Interval, Timestamp,
 };
 use serde::{Deserialize, Serialize};
 
@@ -22,12 +23,12 @@ pub enum PositionType {
 pub struct PositionStatistics {
     #[serde(rename = "type")]
     pub type_: PositionType,
-    pub open_time: u64,
-    pub close_time: u64,
+    pub open_time: Timestamp,
+    pub close_time: Timestamp,
     pub cost: f64,
     pub gain: f64,
     pub profit: f64,
-    pub duration: u64,
+    pub duration: Interval,
     pub roi: f64,
     pub annualized_roi: f64,
     pub close_reason: CloseReason,
@@ -49,7 +50,7 @@ impl PositionStatistics {
                     profit,
                     duration,
                     roi,
-                    annualized_roi: annualized(duration, roi),
+                    annualized_roi: annualized(duration.0, roi),
                     close_reason: pos.close_reason,
                 }
             }
@@ -66,7 +67,7 @@ impl PositionStatistics {
                     profit,
                     duration,
                     roi,
-                    annualized_roi: annualized(duration, roi),
+                    annualized_roi: annualized(duration.0, roi),
                     close_reason: pos.close_reason,
                 }
             }
@@ -86,7 +87,7 @@ impl Statistics {
         summary: &TradingSummary,
         base_prices: &[f64],
         quote_prices: Option<&[f64]>,
-        stats_interval: u64,
+        stats_interval: Interval,
     ) -> Self {
         Self {
             core: CoreStatistics::compose(summary),
@@ -113,16 +114,16 @@ mod test_utils {
     };
 
     pub fn get_populated_trading_summary() -> TradingSummary {
-        let mut summary = TradingSummary::new(0, 10, 1.0);
+        let mut summary = TradingSummary::new(0.into(), 10.into(), 1.0);
         summary.positions.push(Position::Long(LongPosition {
-            open_time: 2,
+            open_time: 2.into(),
             open_fills: [Fill {
                 price: 0.5,
                 size: 2.0,
                 quote: 1.0,
                 fee: 0.2,
             }],
-            close_time: 4,
+            close_time: 4.into(),
             close_fills: [Fill {
                 price: 0.5,
                 size: 1.8,
@@ -132,14 +133,14 @@ mod test_utils {
             close_reason: CloseReason::Strategy,
         }));
         summary.positions.push(Position::Long(LongPosition {
-            open_time: 6,
+            open_time: 6.into(),
             open_fills: [Fill {
                 price: 0.5,
                 size: 1.62,
                 quote: 0.81,
                 fee: 0.02,
             }],
-            close_time: 8,
+            close_time: 8.into(),
             close_fills: [Fill {
                 price: 0.75,
                 size: 1.6,
