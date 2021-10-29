@@ -1,4 +1,8 @@
-use chrono::prelude::*;
+use ::time::{
+    format_description::{self, well_known::Rfc3339, FormatItem},
+    Date, Month, OffsetDateTime, UtcOffset,
+};
+use once_cell::sync::Lazy;
 use serde::{de, Deserialize, Deserializer, Serialize};
 use std::{
     fmt,
@@ -13,12 +17,15 @@ use super::Interval;
 
 const WEEK_OFFSET_MS: u64 = 345_600_000;
 
-fn datetime_timestamp_ms(dt: DateTime<Utc>) -> u64 {
-    dt.timestamp_millis() as u64
+static DATE_FORMAT: Lazy<Vec<FormatItem<'_>>> =
+    Lazy::new(|| format_description::parse("[year]-[month]-[day]").unwrap());
+
+fn datetime_timestamp_ms(dt: OffsetDateTime) -> u64 {
+    (dt.unix_timestamp_nanos() / 1_000_000) as u64
 }
 
-fn datetime_utcfromtimestamp_ms(timestamp: u64) -> DateTime<Utc> {
-    Utc.timestamp_millis(timestamp as i64)
+fn datetime_utcfromtimestamp_ms(timestamp: u64) -> OffsetDateTime {
+    OffsetDateTime::from_unix_timestamp_nanos(timestamp as i128 * 1_000_000).unwrap()
 }
 
 #[derive(Debug, Default, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize)]
@@ -45,12 +52,13 @@ impl Timestamp {
         }
         if interval == Interval::MONTH_MS {
             let dt = datetime_utcfromtimestamp_ms(self.0);
+            let (year, month, _) = dt.to_calendar_date();
             return Self(datetime_timestamp_ms(
-                dt.date()
-                    .with_day(1)
+                Date::from_calendar_date(year, month, 1)
                     .unwrap()
-                    .and_time(NaiveTime::from_hms(0, 0, 0))
-                    .unwrap(),
+                    .with_hms(0, 0, 0)
+                    .unwrap()
+                    .assume_offset(UtcOffset::UTC),
             ));
         }
         unimplemented!();
@@ -65,10 +73,18 @@ impl Timestamp {
         }
         if interval == Interval::MONTH_MS {
             let dt = datetime_utcfromtimestamp_ms(self.0);
-            return Self(datetime_timestamp_ms(DateTime::<Utc>::from_utc(
-                NaiveDate::from_ymd(dt.year(), dt.month() + 1, 1).and_hms(0, 0, 0),
-                Utc,
-            )));
+            let (mut year, mut month, _) = dt.to_calendar_date();
+            if month == Month::December {
+                year += 1;
+            }
+            month = month.next();
+            return Self(datetime_timestamp_ms(
+                Date::from_calendar_date(year, month, 1)
+                    .unwrap()
+                    .with_hms(0, 0, 0)
+                    .unwrap()
+                    .assume_offset(UtcOffset::UTC),
+            ));
         }
         unimplemented!();
     }
@@ -76,9 +92,9 @@ impl Timestamp {
 
 impl fmt::Display for Timestamp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let datetime = Utc.timestamp_millis(self.0 as i64);
-        // datetime.to_rfc3339()
-        datetime.format("%Y-%m-%dT%H:%M:%S%:z").fmt(f)
+        let datetime =
+            OffsetDateTime::from_unix_timestamp_nanos(self.0 as i128 * 1_000_000).unwrap();
+        datetime.format(&Rfc3339).unwrap().fmt(f)
     }
 }
 
@@ -88,16 +104,17 @@ impl FromStr for Timestamp {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Err(())
             .or_else(|_| {
-                s.parse::<DateTime<Utc>>()
-                    .map(|x| x.timestamp() as u64 * 1000 + u64::from(x.timestamp_subsec_millis()))
+                OffsetDateTime::parse(s, &Rfc3339)
+                    .map(|x| (x.unix_timestamp_nanos() / 1_000_000) as u64)
             })
             .or_else(|_| {
-                s.parse::<NaiveDateTime>()
-                    .map(|x| x.timestamp() as u64 * 1000 + u64::from(x.timestamp_subsec_millis()))
-            })
-            .or_else(|_| {
-                s.parse::<NaiveDate>()
-                    .map(|x| x.and_hms(0, 0, 0).timestamp() as u64 * 1000)
+                Date::parse(s, &DATE_FORMAT).map(|x| {
+                    (x.with_hms(0, 0, 0)
+                        .unwrap()
+                        .assume_offset(UtcOffset::UTC)
+                        .unix_timestamp_nanos()
+                        / 1_000_000) as u64
+                })
             })
             .map(Self)
             .map_err(|_| Self::Err {})
@@ -186,8 +203,8 @@ mod tests {
     #[test]
     fn test_timestamp_to_repr() {
         assert_eq!(
-            Timestamp(1546300800000).to_string(),
-            "2019-01-01T00:00:00+00:00"
+            Timestamp(1_546_300_800_000).to_string(),
+            "2019-01-01T00:00:00Z"
         );
     }
 
@@ -195,7 +212,15 @@ mod tests {
     fn test_timestamp_from_repr() {
         assert_eq!(
             Timestamp::from_str("2019-01-01"),
-            Ok(Timestamp(1546300800000))
+            Ok(Timestamp(1_546_300_800_000))
+        );
+        assert_eq!(
+            Timestamp::from_str("2019-01-01T00:00:00Z"),
+            Ok(Timestamp(1_546_300_800_000))
+        );
+        assert_eq!(
+            Timestamp::from_str("2019-01-01T00:00:00+00:00"),
+            Ok(Timestamp(1_546_300_800_000))
         );
     }
 
@@ -211,13 +236,13 @@ mod tests {
         );
         // "2020-01-01T00:00:00Z" -> 2020-01-06T00:00:00Z
         assert_eq!(
-            Timestamp(1577836800000).ceil(Interval::WEEK_MS),
-            Timestamp(1578268800000)
+            Timestamp(1_577_836_800_000).ceil(Interval::WEEK_MS),
+            Timestamp(1_578_268_800_000)
         );
         // 2020-01-02T00:00:00Z -> 2020-02-01T00:00:00Z
         assert_eq!(
-            Timestamp(1577923200000).ceil(Interval::MONTH_MS),
-            Timestamp(1580515200000)
+            Timestamp(1_577_923_200_000).ceil(Interval::MONTH_MS),
+            Timestamp(1_580_515_200_000)
         );
     }
 
@@ -227,13 +252,13 @@ mod tests {
         assert_eq!(Timestamp(1001).floor(Interval::DAY_MS), Timestamp(0));
         // 2020-01-01T00:00:00Z -> 2019-12-30T00:00:00Z
         assert_eq!(
-            Timestamp(1577836800000).floor(Interval::WEEK_MS),
-            Timestamp(1577664000000)
+            Timestamp(1_577_836_800_000).floor(Interval::WEEK_MS),
+            Timestamp(1_577_664_000_000)
         );
         // 2020-01-02T00:00:00Z -> 2020-01-01T00:00:00Z
         assert_eq!(
-            Timestamp(1577923200000).floor(Interval::MONTH_MS),
-            Timestamp(1577836800000)
+            Timestamp(1_577_923_200_000).floor(Interval::MONTH_MS),
+            Timestamp(1_577_836_800_000)
         );
     }
 }

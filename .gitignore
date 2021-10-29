@@ -1,8 +1,6 @@
 # Rust
 **/*.rs.bk
 /target/
-Cargo.lock
 
 # Misc
 .vscode
-temp-plot.html
