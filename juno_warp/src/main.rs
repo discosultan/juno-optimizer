@@ -2,7 +2,6 @@ mod routes;
 
 use serde::Serialize;
 use std::{convert::Infallible, env, result::Result};
-use tracing_subscriber;
 use warp::{
     http::{header, Method, StatusCode},
     Filter, Rejection, Reply,

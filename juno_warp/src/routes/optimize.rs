@@ -92,7 +92,7 @@ fn post() -> impl Filter<Extract = (reply::Json,), Error = Rejection> + Clone {
     warp::post()
         .and(warp::body::json())
         .and_then(|args: Params| async move {
-            process(args).await.map_err(|error| custom_reject(error)) // TODO: return 400
+            process(args).await.map_err(custom_reject) // TODO: return 400
         })
 }
 
@@ -122,7 +122,7 @@ async fn process(args: Params) -> Result<reply::Json> {
                     try_join_all(args.iter_symbols().map(|symbol| (symbol, &ind)).map(
                         |(symbol, ind)| async move {
                             let summary = backtest(&args, symbol, &ind.chromosome).await?;
-                            let stats = get_stats(&args, symbol, &summary).await?;
+                            let stats = get_stats(args, symbol, &summary).await?;
                             Ok::<_, Error>((symbol.as_ref(), stats))
                         },
                     ))
@@ -207,7 +207,7 @@ async fn backtest(
     let (exchange_info, candles) = try_join(exchange_info_task, candles_task).await?;
 
     Ok(trade(
-        &chromosome,
+        chromosome,
         &candles,
         &exchange_info.fees[symbol],
         &exchange_info.filters[symbol],
@@ -251,7 +251,7 @@ async fn get_stats(args: &Params, symbol: &str, summary: &TradingSummary) -> Res
         candles::candles_to_prices(&stats_candles, stats_quote_prices.as_deref());
 
     let stats = Statistics::compose(
-        &summary,
+        summary,
         &stats_base_prices,
         stats_quote_prices.as_deref(),
         stats_interval,
