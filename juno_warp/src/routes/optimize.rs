@@ -19,7 +19,7 @@ use juno::{
     Interval, SymbolExt, Timestamp,
 };
 use serde::{Deserialize, Serialize};
-use std::{cmp::min, collections::HashMap};
+use std::collections::HashMap;
 use warp::{reply, Filter, Rejection, Reply};
 
 #[derive(Deserialize)]
@@ -105,11 +105,9 @@ async fn process(args: Params) -> Result<reply::Json> {
         .enumerate()
         .filter(|(_, gen)| {
             let mut pass = false;
-            for i in 0..min(args.hall_of_fame_size, gen.hall_of_fame.len()) {
-                let best_ind = &gen.hall_of_fame[i];
-                let best_fitness = best_fitnesses[i];
-                if best_fitness.is_nan() || best_ind.fitness > best_fitness {
-                    best_fitnesses[i] = best_ind.fitness;
+            for (best_ind, best_fitness) in gen.hall_of_fame.iter().zip(best_fitnesses.iter_mut()) {
+                if best_fitness.is_nan() || best_ind.fitness > *best_fitness {
+                    *best_fitness = best_ind.fitness;
                     pass = true;
                 }
             }
@@ -121,7 +119,7 @@ async fn process(args: Params) -> Result<reply::Json> {
                 let symbol_stats =
                     try_join_all(args.iter_symbols().map(|symbol| (symbol, &ind)).map(
                         |(symbol, ind)| async move {
-                            let summary = backtest(&args, symbol, &ind.chromosome).await?;
+                            let summary = backtest(args, symbol, &ind.chromosome).await?;
                             let stats = get_stats(args, symbol, &summary).await?;
                             Ok::<_, Error>((symbol.as_ref(), stats))
                         },

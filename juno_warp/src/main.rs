@@ -47,7 +47,7 @@ async fn handle_rejection(err: Rejection) -> Result<impl Reply, Infallible> {
         (StatusCode::INTERNAL_SERVER_ERROR, format!("{:?}", err))
     };
 
-    let json = warp::reply::json(&ErrorResponse { message: message });
+    let json = warp::reply::json(&ErrorResponse { message });
 
     Ok(warp::reply::with_status(json, status))
 }

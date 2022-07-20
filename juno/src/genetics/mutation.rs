@@ -11,7 +11,7 @@ pub struct UniformMutation {
 
 impl UniformMutation {
     pub fn new(mutation_probability: f32) -> Self {
-        assert!(0.0 <= mutation_probability && mutation_probability <= 1.0);
+        assert!((0.0..=1.0).contains(&mutation_probability));
         UniformMutation {
             mutation_probability,
         }

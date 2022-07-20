@@ -69,7 +69,8 @@ impl fmt::Display for Interval {
             let quotient = remainder / factor;
             remainder %= factor;
             if quotient > 0 {
-                result.push_str(&format!("{}{}", quotient, letter));
+                result.push_str(&quotient.to_string());
+                result.push_str(letter);
             }
             if remainder == 0 {
                 break;

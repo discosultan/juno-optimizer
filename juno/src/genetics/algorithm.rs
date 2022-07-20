@@ -73,10 +73,10 @@ where
 
         let mut parents = (0..population_size)
             .map(|_| Individual::generate(&mut rng, ctx))
-            .collect();
+            .collect::<Vec<_>>();
         self.evaluate_and_sort_by_fitness_desc(&mut parents, &mut timings);
         let generation = Generation {
-            hall_of_fame: parents.iter().cloned().take(hall_of_fame_size).collect(),
+            hall_of_fame: parents.iter().take(hall_of_fame_size).cloned().collect(),
             timings,
         };
         on_generation(0, &generation);
@@ -100,7 +100,7 @@ where
             offsprings.clear();
 
             let generation = Generation {
-                hall_of_fame: parents.iter().cloned().take(hall_of_fame_size).collect(),
+                hall_of_fame: parents.iter().take(hall_of_fame_size).cloned().collect(),
                 timings,
             };
             on_generation(gen, &generation);
@@ -113,7 +113,7 @@ where
     fn run_generation(
         &self,
         rng: &mut StdRng,
-        parents: &mut Vec<Individual<TE::Chromosome>>,
+        parents: &mut [Individual<TE::Chromosome>],
         offsprings: &mut Vec<Individual<TE::Chromosome>>,
         population_size: usize,
         timings: &mut Timings,
@@ -168,7 +168,7 @@ where
 
     fn evaluate_and_sort_by_fitness_desc(
         &self,
-        population: &mut Vec<Individual<TE::Chromosome>>,
+        population: &mut [Individual<TE::Chromosome>],
         timings: &mut Timings,
     ) {
         let start = time::Instant::now();

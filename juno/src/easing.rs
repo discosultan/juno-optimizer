@@ -46,7 +46,9 @@ pub enum Easing {
     BounceInout,
 }
 
-static EASINGS: Lazy<HashMap<Easing, fn(f64) -> f64>> = Lazy::new(|| {
+type EasingMap = HashMap<Easing, fn(f64) -> f64>;
+
+static EASINGS: Lazy<EasingMap> = Lazy::new(|| {
     [
         (Easing::Linear, linear as fn(f64) -> f64),
         (Easing::QuadIn, ezing::quad_in::<f64> as fn(f64) -> f64),

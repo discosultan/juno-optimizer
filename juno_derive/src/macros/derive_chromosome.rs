@@ -114,22 +114,20 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
                 if attr.path.is_ident("serde") {
                     let meta = attr.parse_meta().unwrap();
                     if let Meta::List(meta) = meta {
-                        if let NestedMeta::Meta(meta) = &meta.nested[0] {
-                            if let Meta::NameValue(meta) = meta {
-                                if meta.path.is_ident("serialize_with")
-                                    || meta.path.is_ident("deserialize_with")
-                                {
-                                    if let Lit::Str(value) = &meta.lit {
-                                        let meta_path = &meta.path;
-                                        let meta_lit = format!("{}_option", value.value());
-                                        return Cow::Owned(Attribute {
-                                            bracket_token: attr.bracket_token,
-                                            pound_token: attr.pound_token,
-                                            style: attr.style,
-                                            path: attr.path.clone(),
-                                            tokens: quote! { (#meta_path = #meta_lit) },
-                                        });
-                                    }
+                        if let NestedMeta::Meta(Meta::NameValue(meta)) = &meta.nested[0] {
+                            if meta.path.is_ident("serialize_with")
+                                || meta.path.is_ident("deserialize_with")
+                            {
+                                if let Lit::Str(value) = &meta.lit {
+                                    let meta_path = &meta.path;
+                                    let meta_lit = format!("{}_option", value.value());
+                                    return Cow::Owned(Attribute {
+                                        bracket_token: attr.bracket_token,
+                                        pound_token: attr.pound_token,
+                                        style: attr.style,
+                                        path: attr.path.clone(),
+                                        tokens: quote! { (#meta_path = #meta_lit) },
+                                    });
                                 }
                             }
                         }

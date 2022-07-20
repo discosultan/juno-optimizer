@@ -95,9 +95,9 @@ pub fn trade(
                     if tick(
                         &mut state,
                         &mut summary,
-                        &fees,
-                        &filters,
-                        &borrow_info,
+                        fees,
+                        filters,
+                        borrow_info,
                         margin_multiplier,
                         interval,
                         long,
@@ -120,9 +120,9 @@ pub fn trade(
         if tick(
             &mut state,
             &mut summary,
-            &fees,
-            &filters,
-            &borrow_info,
+            fees,
+            filters,
+            borrow_info,
             margin_multiplier,
             interval,
             long,
@@ -165,7 +165,7 @@ pub fn trade(
 
 fn tick(
     mut state: &mut State,
-    mut summary: &mut TradingSummary,
+    summary: &mut TradingSummary,
     fees: &Fees,
     filters: &Filters,
     borrow_info: &BorrowInfo,
@@ -177,14 +177,14 @@ fn tick(
 ) -> Result<(), &'static str> {
     state.stop_loss.update(candle);
     state.take_profit.update(candle);
-    state.strategy.update(&candle);
+    state.strategy.update(candle);
     let advice = state.changed.update(state.strategy.advice());
 
     if let Some(OpenPosition::Long(_)) = state.open_position {
         if advice == Advice::Short || advice == Advice::Liquidate {
             close_long_position(
-                &mut state,
-                &mut summary,
+                state,
+                summary,
                 fees,
                 filters,
                 candle.time + interval,
@@ -193,8 +193,8 @@ fn tick(
             )
         } else if state.stop_loss.upside_hit() {
             close_long_position(
-                &mut state,
-                &mut summary,
+                state,
+                summary,
                 fees,
                 filters,
                 candle.time + interval,
@@ -203,8 +203,8 @@ fn tick(
             )
         } else if state.take_profit.upside_hit() {
             close_long_position(
-                &mut state,
-                &mut summary,
+                state,
+                summary,
                 fees,
                 filters,
                 candle.time + interval,
@@ -215,8 +215,8 @@ fn tick(
     } else if let Some(OpenPosition::Short(_)) = state.open_position {
         if advice == Advice::Long || advice == Advice::Liquidate {
             close_short_position(
-                &mut state,
-                &mut summary,
+                state,
+                summary,
                 fees,
                 filters,
                 borrow_info,
@@ -226,8 +226,8 @@ fn tick(
             )
         } else if state.stop_loss.downside_hit() {
             close_short_position(
-                &mut state,
-                &mut summary,
+                state,
+                summary,
                 fees,
                 filters,
                 borrow_info,
@@ -237,8 +237,8 @@ fn tick(
             )
         } else if state.take_profit.downside_hit() {
             close_short_position(
-                &mut state,
-                &mut summary,
+                state,
+                summary,
                 fees,
                 filters,
                 borrow_info,
@@ -252,7 +252,7 @@ fn tick(
     if state.open_position.is_none() {
         if long && advice == Advice::Long {
             try_open_long_position(
-                &mut state,
+                state,
                 fees,
                 filters,
                 candle.time + interval,
@@ -260,7 +260,7 @@ fn tick(
             )?;
         } else if short && advice == Advice::Short {
             try_open_short_position(
-                &mut state,
+                state,
                 fees,
                 filters,
                 borrow_info,

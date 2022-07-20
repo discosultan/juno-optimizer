@@ -12,11 +12,9 @@ pub fn is_serde_default(field: &Field) -> bool {
         if attr.path.is_ident("serde") {
             let meta = attr.parse_meta().unwrap();
             if let Meta::List(meta) = meta {
-                if let NestedMeta::Meta(meta) = &meta.nested[0] {
-                    if let Meta::Path(path) = meta {
-                        if path.is_ident("default") {
-                            return true;
-                        }
+                if let NestedMeta::Meta(Meta::Path(path)) = &meta.nested[0] {
+                    if path.is_ident("default") {
+                        return true;
                     }
                 }
             }

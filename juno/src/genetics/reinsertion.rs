@@ -22,8 +22,8 @@ pub struct EliteReinsertion {
 
 impl EliteReinsertion {
     pub fn new(selection_rate: f32, generation_rate: f32) -> Self {
-        assert!(0.0 < selection_rate && selection_rate < 1.0);
-        assert!(0.0 <= generation_rate && generation_rate <= 1.0);
+        assert!((0.0 + f32::EPSILON..1.0).contains(&selection_rate));
+        assert!((0.0..=1.0).contains(&generation_rate));
         Self {
             selection_rate,
             generation_rate,

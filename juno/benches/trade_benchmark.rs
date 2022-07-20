@@ -4,11 +4,9 @@ use juno::{
     stop_loss::{self, StopLossParams},
     strategies::{FourWeekRuleParams, StrategyParams},
     take_profit::{self, TakeProfitParams},
-    time,
     trading::{self, MissedCandlePolicy, TraderParams, TradingParams},
-    BorrowInfo, Candle, Fees,
+    BorrowInfo, Candle, Fees, Interval, Timestamp,
 };
-use std::collections::HashMap;
 
 fn trade_benchmark(c: &mut Criterion) {
     let strategy = StrategyParams::FourWeekRule(FourWeekRuleParams::default());
@@ -17,7 +15,7 @@ fn trade_benchmark(c: &mut Criterion) {
     let mut candles = Vec::with_capacity(num_candles);
     for i in 0..num_candles {
         candles.push(Candle {
-            time: i as u64 * time::MIN_MS,
+            time: Timestamp(i as u64 * Interval::MIN_MS.0),
             open: 0.0,
             high: 0.0,
             low: 0.0,
@@ -55,7 +53,7 @@ fn trade_benchmark(c: &mut Criterion) {
                     stop_loss: StopLossParams::Noop(stop_loss::NoopParams {}),
                     take_profit: TakeProfitParams::Noop(take_profit::NoopParams {}),
                     trader: TraderParams {
-                        interval: time::MIN_MS,
+                        interval: Interval::MIN_MS,
                         missed_candle_policy: MissedCandlePolicy::Ignore,
                     },
                 },

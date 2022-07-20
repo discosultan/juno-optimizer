@@ -11,7 +11,7 @@ use crate::{
 use serde::{Deserialize, Serialize};
 
 // TODO: Use const fn when `365.0.sqrt()` is supported.
-pub(crate) const SQRT_365: f64 = 19.10497317454279908588432590477168560028076171875;
+pub(crate) const SQRT_365: f64 = 19.104_973_174_542_8;
 
 #[derive(Deserialize, Serialize)]
 pub enum PositionType {
@@ -92,8 +92,8 @@ impl Statistics {
         Self {
             core: CoreStatistics::compose(summary),
             extended: ExtendedStatistics::compose(
-                &summary,
-                &base_prices,
+                summary,
+                base_prices,
                 quote_prices,
                 stats_interval,
             ),
