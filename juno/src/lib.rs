@@ -1,5 +1,4 @@
-
-pub mod candles;
+pub mod clients;
 pub mod easing;
 pub mod filters;
 pub mod genetics;
@@ -8,7 +7,6 @@ pub mod itertools;
 pub mod math;
 pub mod statistics;
 pub mod stop_loss;
-pub mod storage;
 pub mod strategies;
 pub mod take_profit;
 pub mod trading;
@@ -16,34 +14,12 @@ pub mod utils;
 
 mod primitives;
 
-pub use crate::{candles::Candle, filters::Filters};
+pub use crate::filters::Filters;
 pub use primitives::*;
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-
-pub trait SymbolExt {
-    fn assets(&self) -> (&str, &str);
-    fn base_asset(&self) -> &str;
-    fn quote_asset(&self) -> &str;
-}
-
-impl SymbolExt for str {
-    fn assets(&self) -> (&str, &str) {
-        let dash_i = dash_index(self);
-        (&self[..dash_i], &self[dash_i..])
-    }
-    fn base_asset(&self) -> &str {
-        &self[..dash_index(self)]
-    }
-    fn quote_asset(&self) -> &str {
-        &self[dash_index(self)..]
-    }
-}
-
-fn dash_index(value: &str) -> usize {
-    value.find('-').expect("not a valid symbol")
-}
+use strum::AsRefStr;
+use std::{collections::HashMap, ops::AddAssign};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Advice {
@@ -68,6 +44,35 @@ pub struct AssetInfo {
 pub struct Fees {
     pub maker: f64,
     pub taker: f64,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
+pub struct Candle {
+    pub time: Timestamp,
+    pub open: f64,
+    pub high: f64,
+    pub low: f64,
+    pub close: f64,
+    pub volume: f64,
+}
+
+impl AddAssign<&Candle> for Candle {
+    fn add_assign(&mut self, other: &Self) {
+        self.high = f64::max(self.high, other.high);
+        self.low = f64::min(self.low, other.low);
+        self.close = other.close;
+        self.volume += other.volume;
+    }
+}
+
+#[derive(AsRefStr, Debug, Deserialize, Serialize)]
+pub enum CandleType {
+    #[serde(rename = "regular")]
+    #[strum(serialize = "regular")]
+    Regular,
+    #[serde(rename = "heikin-ashi")]
+    #[strum(serialize = "heikin-ashi")]
+    HeikinAshi,
 }
 
 #[derive(Deserialize, Serialize)]

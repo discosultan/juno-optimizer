@@ -16,29 +16,6 @@ use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::mem;
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
-pub enum MissedCandlePolicy {
-    Ignore,
-    Restart,
-    Last,
-}
-
-const MISSED_CANDLE_POLICY_CHOICES: [MissedCandlePolicy; 3] = [
-    MissedCandlePolicy::Ignore,
-    MissedCandlePolicy::Restart,
-    MissedCandlePolicy::Last,
-];
-
-pub trait MissedCandlePolicyExt {
-    fn gen_missed_candle_policy(&mut self) -> MissedCandlePolicy;
-}
-
-impl MissedCandlePolicyExt for StdRng {
-    fn gen_missed_candle_policy(&mut self) -> MissedCandlePolicy {
-        *MISSED_CANDLE_POLICY_CHOICES.choose(self).unwrap()
-    }
-}
-
 #[derive(Chromosome, Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct TradingParams {
     #[chromosome]
@@ -54,20 +31,18 @@ pub struct TradingParams {
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct TraderParams {
     pub interval: Interval,
-    pub missed_candle_policy: MissedCandlePolicy,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct TraderParamsContext {
     pub intervals: Vec<Interval>,
-    pub missed_candle_policies: Vec<MissedCandlePolicy>,
 }
 
 impl Chromosome for TraderParams {
     type Context = TraderParamsContext;
 
     fn len() -> usize {
-        2
+        1
     }
 
     fn generate(rng: &mut StdRng, ctx: &Self::Context) -> Self {
@@ -77,21 +52,12 @@ impl Chromosome for TraderParams {
                 1 => ctx.intervals[0],
                 _ => *ctx.intervals.choose(rng).unwrap(),
             },
-            missed_candle_policy: match ctx.missed_candle_policies.len() {
-                0 => panic!(),
-                1 => ctx.missed_candle_policies[0],
-                _ => *ctx.missed_candle_policies.choose(rng).unwrap(),
-            },
         }
     }
 
     fn cross(&mut self, other: &mut Self, i: usize) {
         match i {
             0 => mem::swap(&mut self.interval, &mut other.interval),
-            1 => mem::swap(
-                &mut self.missed_candle_policy,
-                &mut other.missed_candle_policy,
-            ),
             _ => panic!(),
         };
     }
@@ -104,14 +70,7 @@ impl Chromosome for TraderParams {
                     1 => ctx.intervals[0],
                     _ => *ctx.intervals.choose(rng).unwrap(),
                 }
-            }
-            1 => {
-                self.missed_candle_policy = match ctx.missed_candle_policies.len() {
-                    0 => panic!(),
-                    1 => ctx.missed_candle_policies[0],
-                    _ => *ctx.missed_candle_policies.choose(rng).unwrap(),
-                }
-            }
+            },
             _ => panic!(),
         };
     }

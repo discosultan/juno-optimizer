@@ -1,18 +1,20 @@
 [package]
-name = "juno_warp"
+name = "juno_axum"
 version = "0.1.0"
 authors = ["discosultan <jaanusvarus@gmail.com>"]
 edition = "2021"
 
 [dependencies]
 anyhow = "1"
+axum = "0.5"
 futures = "0.3"
-juno_derive = { version = "0.1", path = "../juno_derive" }
 juno = { version = "0.1", path = "../juno" }
+juno_derive = { version = "0.1", path = "../juno_derive" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }
+tower = "0.4"
+tower-http = { version = "0.3", features = ["cors"] }
 tracing = "0.1"
 tracing-futures = "0.2"
 tracing-subscriber = "0.3"
-warp = "0.3"

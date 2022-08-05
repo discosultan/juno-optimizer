@@ -1,5 +1,7 @@
 mod core;
 mod extended;
+use std::collections::HashMap;
+
 pub use self::core::*;
 pub use extended::*;
 
@@ -85,18 +87,13 @@ pub struct Statistics {
 impl Statistics {
     pub fn compose(
         summary: &TradingSummary,
-        base_prices: &[f64],
-        quote_prices: Option<&[f64]>,
+        symbol: &str,
+        prices: &HashMap<String, Vec<f64>>,
         stats_interval: Interval,
     ) -> Self {
         Self {
             core: CoreStatistics::compose(summary),
-            extended: ExtendedStatistics::compose(
-                summary,
-                base_prices,
-                quote_prices,
-                stats_interval,
-            ),
+            extended: ExtendedStatistics::compose(summary, symbol, prices, stats_interval),
             positions: summary
                 .positions
                 .iter()

@@ -1,12 +1,12 @@
 use super::TradingParams;
 use crate::{
-    candles,
+    clients::juno_core,
     genetics::{Evaluation, Individual},
-    statistics, storage,
+    statistics, symbol,
     trading::trade,
-    BorrowInfo, Candle, Fees, Filters, Interval, SymbolExt, Timestamp,
+    BorrowInfo, Candle, CandleType, Fees, Filters, Interval, SymbolExt, Timestamp,
 };
-use futures::future::{try_join3, try_join_all};
+use futures::future::{try_join, try_join_all};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -49,22 +49,20 @@ impl EvaluationAggregation {
 #[derive(Error, Debug)]
 pub enum EvaluationError {
     #[error(transparent)]
-    Storage(#[from] storage::Error),
-    #[error(transparent)]
-    Chandler(#[from] candles::Error),
+    JunoCore(#[from] juno_core::Error),
 }
 
 struct SymbolCtx {
+    symbol: String,
     interval_candles: HashMap<Interval, Vec<Candle>>,
     fees: Fees,
     filters: Filters,
     borrow_info: BorrowInfo,
-    stats_base_prices: Vec<f64>,
-    stats_quote_prices: Option<Vec<f64>>,
 }
 
 pub struct BasicEvaluation {
     symbol_ctxs: Vec<SymbolCtx>,
+    prices: HashMap<String, Vec<f64>>,
     quote: f64,
     stats_interval: Interval,
     evaluation_statistic: EvaluationStatistic,
@@ -73,6 +71,7 @@ pub struct BasicEvaluation {
 
 impl BasicEvaluation {
     pub async fn new(
+        juno_core_client: &juno_core::Client,
         exchange: &str,
         symbols: &[String],
         intervals: &[Interval],
@@ -82,54 +81,55 @@ impl BasicEvaluation {
         evaluation_statistic: EvaluationStatistic,
         evaluation_aggregation: EvaluationAggregation,
     ) -> Result<Self> {
-        let exchange_info = storage::get_exchange_info(exchange).await?;
+        let exchange_info = juno_core_client.get_exchange_info(exchange).await?;
         let stats_interval = Interval::DAY_MS;
-        let symbol_ctxs = try_join_all(symbols.iter().map(|symbol| (symbol, &exchange_info)).map(
-            |(symbol, exchange_info)| async move {
-                let interval_candles_task =
-                    try_join_all(intervals.iter().map(|&interval| async move {
-                        Ok::<_, candles::Error>((
-                            interval,
-                            candles::list_candles(exchange, symbol, interval, start, end, false)
+
+        let symbol_ctxs_task =
+            try_join_all(symbols.iter().map(|symbol| (symbol, &exchange_info)).map(
+                |(symbol, exchange_info)| async {
+                    let interval_candles = try_join_all(intervals.iter().map(|interval| async {
+                        Ok::<_, juno_core::Error>((
+                            *interval,
+                            juno_core_client
+                                .list_candles(
+                                    exchange,
+                                    symbol,
+                                    *interval,
+                                    start,
+                                    end,
+                                    CandleType::Regular,
+                                )
                                 .await?,
                         ))
-                    }));
+                    }))
+                    .await?;
 
-                // Stats base.
-                let stats_candles_task =
-                    candles::list_candles(exchange, symbol, stats_interval, start, end, true);
+                    let interval_candles = interval_candles.into_iter().collect();
 
-                // Stats quote (optional).
-                let stats_fiat_candles_task =
-                    candles::list_candles("binance", "btc-usdt", stats_interval, start, end, true);
+                    // Store context variables.
+                    Ok::<_, juno_core::Error>(SymbolCtx {
+                        symbol: symbol.clone(),
+                        interval_candles,
+                        fees: exchange_info.fees[symbol],
+                        filters: exchange_info.filters[symbol],
+                        borrow_info: exchange_info.borrow_info[symbol][symbol.base_asset()],
+                    })
+                },
+            ));
 
-                let (interval_candles, stats_candles, stats_fiat_candles) = try_join3(
-                    interval_candles_task,
-                    stats_candles_task,
-                    stats_fiat_candles_task,
-                )
-                .await?;
+        let mut assets = symbol::list_assets(symbols);
+        // Benchmark asset for extended statistics.
+        assets.push("btc");
+        let prices_task = juno_core_client.map_asset_prices(
+            exchange,
+            &assets,
+            stats_interval,
+            start,
+            end,
+            "usdt",
+        );
 
-                let interval_candles = interval_candles.into_iter().collect();
-
-                // let stats_quote_prices = None;
-                let stats_quote_prices =
-                    Some(candles::candles_to_prices(&stats_fiat_candles, None));
-                let stats_base_prices =
-                    candles::candles_to_prices(&stats_candles, stats_quote_prices.as_deref());
-
-                // Store context variables.
-                Ok::<_, candles::Error>(SymbolCtx {
-                    interval_candles,
-                    fees: exchange_info.fees[symbol],
-                    filters: exchange_info.filters[symbol],
-                    borrow_info: exchange_info.borrow_info[symbol][symbol.base_asset()],
-                    stats_base_prices,
-                    stats_quote_prices,
-                })
-            },
-        ))
-        .await?;
+        let (symbol_ctxs, prices) = try_join(symbol_ctxs_task, prices_task).await?;
 
         Ok(Self {
             symbol_ctxs,
@@ -141,6 +141,7 @@ impl BasicEvaluation {
                 EvaluationAggregation::Log10 => sum_log10,
                 EvaluationAggregation::Log10Factored => sum_log10_factored,
             },
+            prices,
         })
     }
 
@@ -170,14 +171,14 @@ impl BasicEvaluation {
             }
             EvaluationStatistic::SharpeRatio => statistics::get_sharpe_ratio(
                 &summary,
-                &symbol_ctx.stats_base_prices,
-                symbol_ctx.stats_quote_prices.as_deref(),
+                &symbol_ctx.symbol,
+                &self.prices,
                 self.stats_interval,
             ),
             EvaluationStatistic::SortinoRatio => statistics::get_sortino_ratio(
                 &summary,
-                &symbol_ctx.stats_base_prices,
-                symbol_ctx.stats_quote_prices.as_deref(),
+                &symbol_ctx.symbol,
+                &self.prices,
                 self.stats_interval,
             ),
         }

@@ -10,7 +10,7 @@ use crate::{
     Advice, BorrowInfo, Candle, Fees, Fill, Filters, Interval, Timestamp,
 };
 
-use super::{MissedCandlePolicy, TradingParams};
+use super::TradingParams;
 
 struct State {
     pub strategy: Box<dyn Signal>,
@@ -53,9 +53,6 @@ pub fn trade(
     short: bool,
 ) -> TradingSummary {
     let interval = params.trader.interval;
-    let missed_candle_policy = params.trader.missed_candle_policy;
-
-    let two_interval = interval * 2;
 
     let candles_len = candles.len();
     let (start, end) = if candles_len == 0 {
@@ -75,48 +72,6 @@ pub fn trade(
     );
 
     for candle in candles {
-        let mut exit = false;
-
-        if let Some(last_candle) = state.last_candle {
-            let diff = candle.time - last_candle.time;
-            if missed_candle_policy == MissedCandlePolicy::Restart && diff >= two_interval {
-                state.strategy = params.strategy.construct(&strategy_meta);
-            } else if missed_candle_policy == MissedCandlePolicy::Last && diff >= two_interval {
-                let num_missed = diff.0 / interval.0 - 1;
-                for i in 1..=num_missed {
-                    let missed_candle = Candle {
-                        time: last_candle.time + i * interval,
-                        open: last_candle.close,
-                        high: last_candle.close,
-                        low: last_candle.close,
-                        close: last_candle.close,
-                        volume: 0.0,
-                    };
-                    if tick(
-                        &mut state,
-                        &mut summary,
-                        fees,
-                        filters,
-                        borrow_info,
-                        margin_multiplier,
-                        interval,
-                        long,
-                        short,
-                        &missed_candle,
-                    )
-                    .is_err()
-                    {
-                        exit = true;
-                        break;
-                    }
-                }
-            }
-        }
-
-        if exit {
-            break;
-        }
-
         if tick(
             &mut state,
             &mut summary,
@@ -251,13 +206,7 @@ fn tick(
 
     if state.open_position.is_none() {
         if long && advice == Advice::Long {
-            try_open_long_position(
-                state,
-                fees,
-                filters,
-                candle.time + interval,
-                candle.close,
-            )?;
+            try_open_long_position(state, fees, filters, candle.time + interval, candle.close)?;
         } else if short && advice == Advice::Short {
             try_open_short_position(
                 state,
