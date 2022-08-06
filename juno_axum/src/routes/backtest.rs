@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::Arc};
 use tracing::{info, instrument};
 
+use crate::error::Error;
 use juno::clients::juno_core;
 
 #[derive(Debug, Deserialize)]
@@ -37,14 +38,14 @@ pub fn routes() -> Router {
 async fn post(
     Json(args): Json<Params>,
     Extension(juno_core_client): Extension<Arc<juno_core::Client>>,
-) -> Result<impl IntoResponse, StatusCode> {
+) -> Result<impl IntoResponse, Error> {
     let symbol_summary_tasks = args.symbols.iter().map(|symbol| async {
         let summary = backtest(&juno_core_client, &args, symbol).await?;
         Ok::<_, anyhow::Error>((symbol.clone(), summary))
     });
     let symbol_summaries = try_join_all(symbol_summary_tasks)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(Error::from)?;
 
     let symbol_stat_tasks = symbol_summaries.iter().map(|(symbol, summary)| async {
         let stats = get_stats(&juno_core_client, &args, symbol, summary).await?;
@@ -52,7 +53,7 @@ async fn post(
     });
     let symbol_stats = try_join_all(symbol_stat_tasks)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .map_err(Error::from)?
         .into_iter()
         .collect();
 

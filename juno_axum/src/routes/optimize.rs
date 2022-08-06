@@ -1,4 +1,3 @@
-use anyhow::Result;
 use axum::{http::StatusCode, response::IntoResponse, routing, Extension, Json, Router};
 use futures::future::{try_join, try_join_all};
 use juno::{
@@ -16,6 +15,8 @@ use juno::{
 };
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::Arc};
+
+use crate::error::Error;
 
 #[derive(Deserialize)]
 struct Params {
@@ -86,10 +87,10 @@ async fn get() -> impl IntoResponse {
 async fn post(
     Json(args): Json<Params>,
     Extension(juno_core_client): Extension<Arc<juno_core::Client>>,
-) -> Result<impl IntoResponse, StatusCode> {
+) -> Result<impl IntoResponse, Error> {
     let evolution = optimize(&juno_core_client, &args)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(Error::from)?;
 
     let mut best_fitnesses = vec![f64::NAN; args.hall_of_fame_size];
     let gen_stats_tasks = evolution
@@ -108,9 +109,7 @@ async fn post(
         .enumerate()
         .map(|(i, gen)| backtest_generation(&juno_core_client, &args, i, gen));
 
-    let gen_stats = try_join_all(gen_stats_tasks)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let gen_stats = try_join_all(gen_stats_tasks).await.map_err(Error::from)?;
 
     Ok((
         StatusCode::OK,
@@ -126,7 +125,7 @@ async fn backtest_generation(
     args: &Params,
     nr: usize,
     gen: Generation<TradingParams>,
-) -> Result<GenerationOutput> {
+) -> anyhow::Result<GenerationOutput> {
     let hall_of_fame_tasks = gen.hall_of_fame.into_iter().map(|ind| async {
         let symbol_stats = try_join_all(args.iter_symbols().map(|symbol| (symbol, &ind)).map(
             |(symbol, ind)| async {
@@ -152,7 +151,7 @@ async fn backtest_generation(
 async fn optimize(
     juno_core_client: &juno_core::Client,
     args: &Params,
-) -> Result<Evolution<TradingParams>> {
+) -> anyhow::Result<Evolution<TradingParams>> {
     let algo = GeneticAlgorithm::new(
         BasicEvaluation::new(
             juno_core_client,
@@ -195,7 +194,7 @@ async fn backtest(
     args: &Params,
     symbol: &str,
     chromosome: &TradingParams,
-) -> Result<TradingSummary> {
+) -> anyhow::Result<TradingSummary> {
     let exchange_info_task = juno_core_client.get_exchange_info(&args.exchange);
     let candles_task = juno_core_client.list_candles(
         &args.exchange,
@@ -226,7 +225,7 @@ async fn get_stats(
     args: &Params,
     symbol: &str,
     summary: &TradingSummary,
-) -> Result<Statistics> {
+) -> anyhow::Result<Statistics> {
     let stats_interval = Interval::DAY_MS;
 
     let mut assets = vec![symbol.base_asset(), symbol.quote_asset()];
