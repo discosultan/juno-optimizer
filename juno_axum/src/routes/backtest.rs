@@ -6,7 +6,7 @@ use axum::{
 use futures::future::{try_join, try_join_all};
 use juno::{
     statistics::Statistics,
-    trading::{trade, TradingParams, TradingSummary},
+    trading::{trade, TradingParams, TradingSummary, TradeInput},
     Interval, SymbolExt, Timestamp,
 };
 use serde::{Deserialize, Serialize};
@@ -82,14 +82,16 @@ async fn backtest(
     info!("running backtest");
     Ok(trade(
         &args.trading,
-        &candles,
-        &exchange_info.fees[symbol],
-        &exchange_info.filters[symbol],
-        &exchange_info.borrow_info[symbol][symbol.base_asset()],
-        2,
-        args.quote,
-        true,
-        true,
+        &TradeInput {
+            candles: &candles,
+            fees: &exchange_info.fees[symbol],
+            filters: &exchange_info.filters[symbol],
+            borrow_info: &exchange_info.borrow_info[symbol][symbol.base_asset()],
+            margin_multiplier: 2,
+            quote: args.quote,
+            long: true,
+            short: true,
+        },
     ))
 }
 

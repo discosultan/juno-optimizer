@@ -1,4 +1,4 @@
-use super::TradingParams;
+use super::{TradeInput, TradingParams};
 use crate::{
     clients::juno_core,
     genetics::{Evaluation, Individual},
@@ -69,40 +69,56 @@ pub struct BasicEvaluation {
     evaluation_aggregation_fn: fn(f64, f64) -> f64,
 }
 
+pub struct BasicEvaluationInput<'a> {
+    pub exchange: &'a str,
+    pub symbols: &'a [String],
+    pub intervals: &'a [Interval],
+    pub start: Timestamp,
+    pub end: Timestamp,
+    pub quote: f64,
+    pub evaluation_statistic: EvaluationStatistic,
+    pub evaluation_aggregation: EvaluationAggregation,
+}
+
 impl BasicEvaluation {
     pub async fn new(
         juno_core_client: &juno_core::Client,
-        exchange: &str,
-        symbols: &[String],
-        intervals: &[Interval],
-        start: Timestamp,
-        end: Timestamp,
-        quote: f64,
-        evaluation_statistic: EvaluationStatistic,
-        evaluation_aggregation: EvaluationAggregation,
+        input: &BasicEvaluationInput<'_>,
+        // exchange: &str,
+        // symbols: &[String],
+        // intervals: &[Interval],
+        // start: Timestamp,
+        // end: Timestamp,
+        // quote: f64,
+        // evaluation_statistic: EvaluationStatistic,
+        // evaluation_aggregation: EvaluationAggregation,
     ) -> Result<Self> {
-        let exchange_info = juno_core_client.get_exchange_info(exchange).await?;
+        let exchange_info = juno_core_client.get_exchange_info(input.exchange).await?;
         let stats_interval = Interval::DAY_MS;
 
-        let symbol_ctxs_task =
-            try_join_all(symbols.iter().map(|symbol| (symbol, &exchange_info)).map(
-                |(symbol, exchange_info)| async {
-                    let interval_candles = try_join_all(intervals.iter().map(|interval| async {
-                        Ok::<_, juno_core::Error>((
-                            *interval,
-                            juno_core_client
-                                .list_candles(
-                                    exchange,
-                                    symbol,
-                                    *interval,
-                                    start,
-                                    end,
-                                    CandleType::Regular,
-                                )
-                                .await?,
-                        ))
-                    }))
-                    .await?;
+        let symbol_ctxs_task = try_join_all(
+            input
+                .symbols
+                .iter()
+                .map(|symbol| (symbol, &exchange_info))
+                .map(|(symbol, exchange_info)| async {
+                    let interval_candles =
+                        try_join_all(input.intervals.iter().map(|interval| async {
+                            Ok::<_, juno_core::Error>((
+                                *interval,
+                                juno_core_client
+                                    .list_candles(
+                                        input.exchange,
+                                        symbol,
+                                        *interval,
+                                        input.start,
+                                        input.end,
+                                        CandleType::Regular,
+                                    )
+                                    .await?,
+                            ))
+                        }))
+                        .await?;
 
                     let interval_candles = interval_candles.into_iter().collect();
 
@@ -114,18 +130,18 @@ impl BasicEvaluation {
                         filters: exchange_info.filters[symbol],
                         borrow_info: exchange_info.borrow_info[symbol][symbol.base_asset()],
                     })
-                },
-            ));
+                }),
+        );
 
-        let mut assets = symbol::list_assets(symbols);
+        let mut assets = symbol::list_assets(input.symbols);
         // Benchmark asset for extended statistics.
         assets.push("btc");
         let prices_task = juno_core_client.map_asset_prices(
-            exchange,
+            input.exchange,
             &assets,
             stats_interval,
-            start,
-            end,
+            input.start,
+            input.end,
             "usdt",
         );
 
@@ -134,9 +150,9 @@ impl BasicEvaluation {
         Ok(Self {
             symbol_ctxs,
             stats_interval,
-            quote,
-            evaluation_statistic,
-            evaluation_aggregation_fn: match evaluation_aggregation {
+            quote: input.quote,
+            evaluation_statistic: input.evaluation_statistic,
+            evaluation_aggregation_fn: match input.evaluation_aggregation {
                 EvaluationAggregation::Linear => sum_linear,
                 EvaluationAggregation::Log10 => sum_log10,
                 EvaluationAggregation::Log10Factored => sum_log10_factored,
@@ -155,14 +171,16 @@ impl BasicEvaluation {
     fn evaluate_symbol(&self, symbol_ctx: &SymbolCtx, chromosome: &TradingParams) -> f64 {
         let summary = trade(
             chromosome,
-            &symbol_ctx.interval_candles[&chromosome.trader.interval],
-            &symbol_ctx.fees,
-            &symbol_ctx.filters,
-            &symbol_ctx.borrow_info,
-            2,
-            self.quote,
-            true,
-            true,
+            &TradeInput {
+                candles: &symbol_ctx.interval_candles[&chromosome.trader.interval],
+                fees: &symbol_ctx.fees,
+                filters: &symbol_ctx.filters,
+                borrow_info: &symbol_ctx.borrow_info,
+                margin_multiplier: 2,
+                quote: self.quote,
+                long: true,
+                short: true,
+            },
         );
         match self.evaluation_statistic {
             EvaluationStatistic::Profit => statistics::get_profit(&summary),

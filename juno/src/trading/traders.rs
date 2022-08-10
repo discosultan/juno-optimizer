@@ -41,47 +41,51 @@ impl State {
     }
 }
 
+pub struct TradeInput<'a> {
+    pub candles: &'a [Candle],
+    pub fees: &'a Fees,
+    pub filters: &'a Filters,
+    pub borrow_info: &'a BorrowInfo,
+    pub margin_multiplier: u32,
+    pub quote: f64,
+    pub long: bool,
+    pub short: bool,
+}
+
 pub fn trade(
     params: &TradingParams,
-    candles: &[Candle],
-    fees: &Fees,
-    filters: &Filters,
-    borrow_info: &BorrowInfo,
-    margin_multiplier: u32,
-    quote: f64,
-    long: bool,
-    short: bool,
+    input: &TradeInput,
 ) -> TradingSummary {
     let interval = params.trader.interval;
 
-    let candles_len = candles.len();
+    let candles_len = input.candles.len();
     let (start, end) = if candles_len == 0 {
         (0.into(), Timestamp(interval.0))
     } else {
-        (candles[0].time, candles[candles_len - 1].time + interval)
+        (input.candles[0].time, input.candles[candles_len - 1].time + interval)
     };
 
     let strategy_meta = StrategyMeta { interval };
 
-    let mut summary = TradingSummary::new(start, end, quote);
+    let mut summary = TradingSummary::new(start, end, input.quote);
     let mut state = State::new(
-        quote,
+        input.quote,
         params.strategy.construct(&strategy_meta),
         params.stop_loss.construct(),
         params.take_profit.construct(),
     );
 
-    for candle in candles {
+    for candle in input.candles {
         if tick(
             &mut state,
             &mut summary,
-            fees,
-            filters,
-            borrow_info,
-            margin_multiplier,
+            input.fees,
+            input.filters,
+            input.borrow_info,
+            input.margin_multiplier,
             interval,
-            long,
-            short,
+            input.long,
+            input.short,
             candle,
         )
         .is_err()
@@ -95,8 +99,8 @@ pub fn trade(
             Some(OpenPosition::Long(_)) => close_long_position(
                 &mut state,
                 &mut summary,
-                fees,
-                filters,
+                input.fees,
+                input.filters,
                 last_candle.time + interval,
                 last_candle.close,
                 CloseReason::Cancelled,
@@ -104,9 +108,9 @@ pub fn trade(
             Some(OpenPosition::Short(_)) => close_short_position(
                 &mut state,
                 &mut summary,
-                fees,
-                filters,
-                borrow_info,
+                input.fees,
+                input.filters,
+                input.borrow_info,
                 last_candle.time + interval,
                 last_candle.close,
                 CloseReason::Cancelled,

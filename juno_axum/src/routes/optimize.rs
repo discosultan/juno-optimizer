@@ -8,8 +8,8 @@ use juno::{
     },
     statistics::Statistics,
     trading::{
-        trade, BasicEvaluation, EvaluationAggregation, EvaluationStatistic, TradingParams,
-        TradingParamsContext, TradingSummary,
+        trade, BasicEvaluation, BasicEvaluationInput, EvaluationAggregation, EvaluationStatistic,
+        TradingParams, TradingParamsContext, TradingSummary, TradeInput,
     },
     CandleType, Interval, SymbolExt, Timestamp,
 };
@@ -155,14 +155,16 @@ async fn optimize(
     let algo = GeneticAlgorithm::new(
         BasicEvaluation::new(
             juno_core_client,
-            &args.exchange,
-            &args.training_symbols,
-            &args.context.trader.intervals,
-            args.start,
-            args.end,
-            args.quote,
-            args.evaluation_statistic,
-            args.evaluation_aggregation,
+            &BasicEvaluationInput {
+                exchange: &args.exchange,
+                symbols: &args.training_symbols,
+                intervals: &args.context.trader.intervals,
+                start: args.start,
+                end: args.end,
+                quote: args.quote,
+                evaluation_statistic: args.evaluation_statistic,
+                evaluation_aggregation: args.evaluation_aggregation,
+            },
         )
         .await?,
         selection::EliteSelection { shuffle: false },
@@ -209,14 +211,16 @@ async fn backtest(
 
     Ok(trade(
         chromosome,
-        &candles,
-        &exchange_info.fees[symbol],
-        &exchange_info.filters[symbol],
-        &exchange_info.borrow_info[symbol][symbol.base_asset()],
-        2,
-        args.quote,
-        true,
-        true,
+        &TradeInput {
+            candles: &candles,
+            fees: &exchange_info.fees[symbol],
+            filters: &exchange_info.filters[symbol],
+            borrow_info: &exchange_info.borrow_info[symbol][symbol.base_asset()],
+            margin_multiplier: 2,
+            quote: args.quote,
+            long: true,
+            short: true,
+        }
     ))
 }
 
