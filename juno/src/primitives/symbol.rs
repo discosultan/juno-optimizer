@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use std::iter::once;
 
 pub trait SymbolExt {
@@ -19,12 +20,15 @@ impl SymbolExt for str {
     }
 }
 
-pub fn list_assets(symbols: &[String]) -> Vec<&str> {
+pub fn iter_unique_assets<'a, I>(symbols: I) -> impl Iterator<Item = &'a str>
+where
+    I: IntoIterator<Item = &'a str>,
+{
     symbols
-        .iter()
+        .into_iter()
         .map(|symbol| symbol.assets())
         .flat_map(|(base, quote)| once(base).chain(once(quote)))
-        .collect()
+        .unique()
 }
 
 fn dash_index(value: &str) -> usize {

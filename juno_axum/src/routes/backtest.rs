@@ -1,17 +1,19 @@
 use axum::{
+    extract::State,
     http::StatusCode,
     response::{IntoResponse, Json},
-    routing, Extension, Router,
+    routing, Router,
 };
-use futures::future::{try_join, try_join_all};
+use itertools::Itertools;
 use juno::{
     statistics::Statistics,
-    trading::{trade, TradingParams, TradingSummary, TradeInput},
-    Interval, SymbolExt, Timestamp,
+    trading::{trade, TradeInput, TradingParams},
+    Candle, ExchangeInfo, Interval, SymbolExt, Timestamp,
 };
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::Arc};
-use tracing::{info, instrument};
+use tracing::info;
 
 use crate::error::Error;
 use juno::clients::juno_core;
@@ -31,88 +33,73 @@ struct BacktestResult {
     symbol_stats: HashMap<String, Statistics>,
 }
 
-pub fn routes() -> Router {
+pub fn routes() -> Router<Arc<juno_core::Client>> {
     Router::new().route("/", routing::post(post))
 }
 
 async fn post(
+    State(juno_core_client): State<Arc<juno_core::Client>>,
     Json(args): Json<Params>,
-    Extension(juno_core_client): Extension<Arc<juno_core::Client>>,
 ) -> Result<impl IntoResponse, Error> {
-    let symbol_summary_tasks = args.symbols.iter().map(|symbol| async {
-        let summary = backtest(&juno_core_client, &args, symbol).await?;
-        Ok::<_, anyhow::Error>((symbol.clone(), summary))
-    });
-    let symbol_summaries = try_join_all(symbol_summary_tasks)
-        .await
-        .map_err(Error::from)?;
-
-    let symbol_stat_tasks = symbol_summaries.iter().map(|(symbol, summary)| async {
-        let stats = get_stats(&juno_core_client, &args, symbol, summary).await?;
-        Ok::<_, anyhow::Error>((symbol.clone(), stats))
-    });
-    let symbol_stats = try_join_all(symbol_stat_tasks)
-        .await
-        .map_err(Error::from)?
-        .into_iter()
-        .collect();
-
-    Ok((StatusCode::OK, Json(BacktestResult { symbol_stats })))
-}
-
-#[instrument(skip(args))]
-async fn backtest(
-    juno_core_client: &juno_core::Client,
-    args: &Params,
-    symbol: &str,
-) -> anyhow::Result<TradingSummary> {
-    info!("gathering necessary info");
-    let exchange_info_task = juno_core_client.get_exchange_info(&args.exchange);
-    let candles_task = juno_core_client.list_candles(
+    // Gather data.
+    info!("gathering data");
+    let symbols: Vec<_> = args.symbols.into_iter().unique().collect();
+    let (exchange_info, candles, prices) = crate::exchange::gather_exchange_info_candles_prices(
+        &juno_core_client,
         &args.exchange,
-        symbol,
-        args.trading.trader.interval,
+        &symbols,
+        &[args.trading.trader.interval],
         args.start,
         args.end,
-        juno::CandleType::Regular, // TODO: variable
-    );
+    )
+    .await?;
 
-    let (exchange_info, candles) = try_join(exchange_info_task, candles_task).await?;
+    // Backtest in parallel.
+    info!("backtesting");
+    let symbols_clone = symbols.clone();
+    let backtest_result = tokio_rayon::spawn(move || {
+        par_backtest(
+            exchange_info,
+            candles,
+            prices,
+            symbols_clone,
+            args.trading,
+            args.quote,
+        )
+    })
+    .await;
 
-    info!("running backtest");
-    Ok(trade(
-        &args.trading,
-        &TradeInput {
-            candles: &candles,
-            fees: &exchange_info.fees[symbol],
-            filters: &exchange_info.filters[symbol],
-            borrow_info: &exchange_info.borrow_info[symbol][symbol.base_asset()],
-            margin_multiplier: 2,
-            quote: args.quote,
-            long: true,
-            short: true,
-        },
-    ))
+    Ok((StatusCode::OK, Json(backtest_result)))
 }
 
-async fn get_stats(
-    juno_core_client: &juno_core::Client,
-    args: &Params,
-    symbol: &str,
-    summary: &TradingSummary,
-) -> anyhow::Result<Statistics> {
+fn par_backtest(
+    exchange_info: ExchangeInfo,
+    candles: HashMap<String, HashMap<Interval, Vec<Candle>>>,
+    prices: HashMap<String, Vec<f64>>,
+    symbols: Vec<String>,
+    trading: TradingParams,
+    quote: f64,
+) -> BacktestResult {
     let stats_interval = Interval::DAY_MS;
-    let start = args.start;
-    let end = args.end;
-
-    let mut assets = vec![symbol.base_asset(), symbol.quote_asset()];
-    // Benchmark asset for extended statistics.
-    assets.push("btc");
-    let prices = juno_core_client
-        .map_asset_prices(&args.exchange, &assets, stats_interval, start, end, "usdt")
-        .await?;
-
-    let stats = Statistics::compose(summary, symbol, &prices, stats_interval);
-
-    Ok(stats)
+    let symbol_stats = symbols
+        .par_iter()
+        .map(|symbol| {
+            let summary = trade(
+                &trading,
+                &TradeInput {
+                    candles: &candles[symbol][&trading.trader.interval],
+                    fees: &exchange_info.fees[symbol],
+                    filters: &exchange_info.filters[symbol],
+                    borrow_info: &exchange_info.borrow_info[symbol][symbol.base_asset()],
+                    margin_multiplier: 2,
+                    quote: quote,
+                    long: true,
+                    short: true,
+                },
+            );
+            let stats = Statistics::compose(&summary, symbol, &prices, stats_interval);
+            (symbol.clone(), stats)
+        })
+        .collect();
+    BacktestResult { symbol_stats }
 }

@@ -31,11 +31,12 @@ pub enum Advice {
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct BorrowInfo {
-    pub daily_interest_rate: f64,
+    pub interest_interval: u64,
+    pub interest_rate: f64,
     pub limit: f64,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct AssetInfo {
     pub precision: u32,
 }
@@ -75,7 +76,7 @@ pub enum CandleType {
     HeikinAshi,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ExchangeInfo {
     // Key: asset
     pub assets: HashMap<String, AssetInfo>,

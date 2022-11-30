@@ -79,7 +79,7 @@ pub fn derive_chromosome_enum(input: TokenStream) -> TokenStream {
             }
         }
 
-        #[derive(Deserialize, Serialize)]
+        #[derive(Clone, Deserialize, Serialize)]
         #[serde(tag = "type")]
         pub enum #ctx_name {
             None,

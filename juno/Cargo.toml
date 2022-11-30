@@ -5,9 +5,11 @@ name = "juno"
 version = "0.1.0"
 
 [dependencies]
+async-trait = "0.1"
 bounded-vec-deque = "0.1"
 ezing = "0.2"
 futures = "0.3"
+itertools = "0.10"
 juno_derive = { version = "0.1", path = "../juno_derive" }
 ndarray = "0.15"
 ndarray-stats = "0.5"
@@ -27,7 +29,7 @@ time = { version = "0.3", features = ["formatting", "parsing"] }
 tokio = { version = "1", features = ["full"] }
 
 [dev-dependencies]
-criterion = "0.3"
+criterion = "0.4"
 serde_yaml = "0.9"
 
 [[bench]]

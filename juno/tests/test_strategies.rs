@@ -11,7 +11,7 @@ use once_cell::sync::Lazy;
 use std::{collections::HashMap, fs::File};
 
 static EXPECTED_STATS: Lazy<HashMap<String, CoreStatistics>> = Lazy::new(|| {
-    let path = "./tests/data/strategies_2021-04-08.json";
+    let path = "./tests/data/strategies.json";
     let file = File::open(path).expect("unable to open file");
     serde_json::from_reader(file).expect("unable to deserialize json")
 });

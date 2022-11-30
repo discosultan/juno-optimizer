@@ -1,11 +1,12 @@
 mod error;
+mod exchange;
 mod routes;
 
 use anyhow::Result;
 use axum::{
     http::{self, HeaderValue, Method},
     routing::get,
-    Extension, Router,
+    Router,
 };
 use juno::clients::juno_core;
 use serde::Serialize;
@@ -28,7 +29,7 @@ async fn main() -> Result<()> {
 
     let juno_core_client = Arc::new(juno_core::Client::new("http://localhost:3030"));
 
-    let app = Router::new()
+    let app = Router::<Arc<juno_core::Client>>::new()
         .layer(
             CorsLayer::new()
                 .allow_origin("*".parse::<HeaderValue>()?)
@@ -38,7 +39,7 @@ async fn main() -> Result<()> {
         .route("/", get(|| async { "hello world" }))
         .nest("/backtest", routes::backtest())
         .nest("/optimize", routes::optimize())
-        .layer(Extension(juno_core_client));
+        .with_state(juno_core_client);
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 4040));
     tracing::info!("listening on {}", addr);

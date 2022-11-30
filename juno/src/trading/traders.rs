@@ -1,5 +1,5 @@
 use crate::{
-    math::{round_down, round_half_up},
+    math::{ceil_multiple, round_down, round_half_up},
     stop_loss::StopLoss,
     strategies::{Signal, StrategyMeta},
     take_profit::TakeProfit,
@@ -52,17 +52,17 @@ pub struct TradeInput<'a> {
     pub short: bool,
 }
 
-pub fn trade(
-    params: &TradingParams,
-    input: &TradeInput,
-) -> TradingSummary {
+pub fn trade(params: &TradingParams, input: &TradeInput) -> TradingSummary {
     let interval = params.trader.interval;
 
     let candles_len = input.candles.len();
     let (start, end) = if candles_len == 0 {
         (0.into(), Timestamp(interval.0))
     } else {
-        (input.candles[0].time, input.candles[candles_len - 1].time + interval)
+        (
+            input.candles[0].time,
+            input.candles[candles_len - 1].time + interval,
+        )
     };
 
     let strategy_meta = StrategyMeta { interval };
@@ -344,9 +344,12 @@ fn close_short_position(
     if let Some(OpenPosition::Short(pos)) = state.open_position.take() {
         let borrowed = pos.borrowed;
 
-        let duration = (time - pos.time).ceil(Interval::HOUR_MS).0 / Interval::HOUR_MS.0;
-        let hourly_interest_rate = borrow_info.daily_interest_rate / 24.0;
-        let interest = borrowed * duration as f64 * hourly_interest_rate;
+        let duration = ceil_multiple(time.0 - pos.time.0, borrow_info.interest_interval)
+            / borrow_info.interest_interval;
+        let interest = round_half_up(
+            borrowed * duration as f64 * borrow_info.interest_rate,
+            filters.base_precision,
+        );
 
         let mut size = borrowed + interest;
         let fee = round_half_up(size * fees.taker, filters.base_precision);

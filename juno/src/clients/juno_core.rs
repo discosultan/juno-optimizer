@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
+use async_trait::async_trait;
 use crate::{Candle, CandleType, ExchangeInfo, Interval, Timestamp};
+use serde::Deserialize;
+use reqwest::{Response, StatusCode, Url};
 use thiserror::Error;
 
 #[derive(Debug)]
@@ -13,6 +16,12 @@ pub struct Client {
 pub enum Error {
     #[error(transparent)]
     Request(#[from] reqwest::Error),
+    #[error("HTTP status client error ({status}) for url ({url}): {message}")]
+    Api {
+        status: StatusCode,
+        url: Url,
+        message: String,
+    },
 }
 
 impl Client {
@@ -30,6 +39,7 @@ impl Client {
             .query(&[("exchange", exchange)])
             .send()
             .await?
+            .error_for_juno_status().await?
             .json()
             .await?;
         Ok(exchange_info)
@@ -57,6 +67,7 @@ impl Client {
             ])
             .send()
             .await?
+            .error_for_juno_status().await?
             .json()
             .await?;
         Ok(candles)
@@ -84,6 +95,7 @@ impl Client {
             ])
             .send()
             .await?
+            .error_for_juno_status().await?
             .json()
             .await?;
         Ok(candles)
@@ -96,6 +108,7 @@ impl Client {
             .query(&[("exchange", exchange)])
             .send()
             .await?
+            .error_for_juno_status().await?
             .json()
             .await?;
         Ok(intervals)
@@ -123,8 +136,37 @@ impl Client {
             ])
             .send()
             .await?
+            .error_for_juno_status().await?
             .json()
             .await?;
         Ok(prices)
+    }
+}
+
+#[derive(Deserialize)]
+struct ApiError {
+    pub message: String,
+}
+
+#[async_trait]
+trait ResponseExt: Sized {
+    async fn error_for_juno_status(self) -> Result<Self, Error>;
+}
+
+#[async_trait]
+impl ResponseExt for Response {
+    async fn error_for_juno_status(self) -> Result<Self, Error> {
+        let status = self.status();
+        if status.is_client_error() {
+            let url = self.url().clone();
+            let api_error: ApiError = self.json().await?;
+            Err(Error::Api {
+                status,
+                url,
+                message: api_error.message,
+            })
+        } else {
+            Ok(self.error_for_status()?)
+        }
     }
 }

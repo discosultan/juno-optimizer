@@ -33,7 +33,7 @@ pub struct TraderParams {
     pub interval: Interval,
 }
 
-#[derive(Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct TraderParamsContext {
     pub intervals: Vec<Interval>,
 }

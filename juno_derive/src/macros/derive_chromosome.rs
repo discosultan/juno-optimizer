@@ -147,7 +147,7 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
 
     let output = quote! {
         #(#ctx_attrs)*
-        #[derive(Default, Deserialize, Serialize)]
+        #[derive(Clone, Default, Deserialize, Serialize)]
         #ctx_vis struct #ctx_name #ctx_generic_ty {
             #(
                 #(#ctx_field_attrs)*

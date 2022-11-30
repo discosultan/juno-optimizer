@@ -42,7 +42,8 @@ fn trade_benchmark(c: &mut Criterion) {
         quote_precision: 8,
     };
     let borrow_info = BorrowInfo {
-        daily_interest_rate: 0.001,
+        interest_rate: 0.001,
+        interest_interval: 3_600_000,
         limit: 1.0,
     };
     c.bench_function("trade", |b| {
