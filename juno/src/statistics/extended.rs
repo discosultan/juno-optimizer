@@ -100,7 +100,6 @@ fn get_asset_performance(
     prices: &HashMap<String, Vec<f64>>,
     interval: Interval,
 ) -> Vec<HashMap<Asset, f64>> {
-    println!("{}", symbol.quote_asset());
     let base_prices = &prices.get(symbol.base_asset()).unwrap();
     let quote_prices = &prices.get(symbol.quote_asset()).unwrap();
 

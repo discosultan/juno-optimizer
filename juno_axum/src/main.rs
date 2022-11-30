@@ -3,11 +3,7 @@ mod exchange;
 mod routes;
 
 use anyhow::Result;
-use axum::{
-    http::{self, HeaderValue, Method},
-    routing::get,
-    Router,
-};
+use axum::{routing::get, Router};
 use juno::clients::juno_core;
 use serde::Serialize;
 use std::{env, net::SocketAddr, sync::Arc};
