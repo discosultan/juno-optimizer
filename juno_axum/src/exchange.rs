@@ -1,10 +1,8 @@
 use std::{collections::HashMap, hash::Hash};
 
 use futures::future::{try_join3, try_join_all};
-use juno::{
-    clients::juno_core, symbol::iter_unique_assets, Candle, CandleType, ExchangeInfo, Interval,
-    Timestamp,
-};
+use itertools::Itertools;
+use juno::{clients::juno_core, symbol, Candle, CandleType, ExchangeInfo, Interval, Timestamp};
 
 pub async fn gather_exchange_info_candles_prices(
     client: &juno_core::Client,
@@ -18,31 +16,34 @@ pub async fn gather_exchange_info_candles_prices(
     HashMap<String, HashMap<Interval, Vec<Candle>>>,
     HashMap<String, Vec<f64>>,
 )> {
-    let exchange_info_task = client.get_exchange_info(exchange);
+    let exchange_info_task = client.get_exchange_info(juno_core::GetExchangeInfo { exchange });
 
-    let candle_tasks = try_join_all(
-        symbols
-            .iter()
-            .map(|symbol| {
-                intervals.iter().map(|interval| {
-                    client.list_candles(
-                        exchange,
-                        symbol,
-                        *interval,
-                        start,
-                        end,
-                        CandleType::Regular,
-                    )
-                })
+    let candle_tasks = try_join_all(symbols.iter().flat_map(|symbol| {
+        intervals.iter().map(|interval| {
+            client.list_candles(juno_core::ListCandles {
+                exchange,
+                symbol,
+                interval: *interval,
+                start,
+                end,
+                type_: CandleType::Regular,
             })
-            .flatten(),
-    );
+        })
+    }));
 
-    let assets: Vec<_> =
-        iter_unique_assets(symbols.iter().map(String::as_str).chain(["btc"])).collect();
+    let assets: Vec<_> = symbol::iter_assets(symbols.iter().map(String::as_str))
+        .chain(["btc"])
+        .unique()
+        .collect();
     let stats_interval = Interval::DAY_MS;
-    let prices_task =
-        client.map_asset_prices(exchange, &assets, stats_interval, start, end, "usdt");
+    let prices_task = client.map_asset_prices(juno_core::MapAssetPrices {
+        exchange,
+        assets: &assets,
+        interval: stats_interval,
+        start,
+        end,
+        target_asset: "usdt",
+    });
 
     let (exchange_info, candles, prices) =
         try_join3(exchange_info_task, candle_tasks, prices_task).await?;

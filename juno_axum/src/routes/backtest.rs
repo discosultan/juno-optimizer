@@ -56,13 +56,12 @@ async fn post(
 
     // Backtest in parallel.
     info!("backtesting");
-    let symbols_clone = symbols.clone();
     let backtest_result = tokio_rayon::spawn(move || {
         par_backtest(
             exchange_info,
             candles,
             prices,
-            symbols_clone,
+            symbols,
             args.trading,
             args.quote,
         )
@@ -92,7 +91,7 @@ fn par_backtest(
                     filters: &exchange_info.filters[symbol],
                     borrow_info: &exchange_info.borrow_info[symbol][symbol.base_asset()],
                     margin_multiplier: 2,
-                    quote: quote,
+                    quote,
                     long: true,
                     short: true,
                 },

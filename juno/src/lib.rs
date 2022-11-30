@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use strum::AsRefStr;
 use std::{collections::HashMap, ops::AddAssign};
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Advice {
     None,
     Long,

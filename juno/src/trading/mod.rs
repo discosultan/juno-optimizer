@@ -76,7 +76,7 @@ impl Chromosome for TraderParams {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum CloseReason {
     Strategy,
     StopLoss,

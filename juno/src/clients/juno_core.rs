@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use async_trait::async_trait;
 use crate::{Candle, CandleType, ExchangeInfo, Interval, Timestamp};
-use serde::Deserialize;
+use async_trait::async_trait;
 use reqwest::{Response, StatusCode, Url};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 #[derive(Debug)]
@@ -24,6 +24,31 @@ pub enum Error {
     },
 }
 
+#[derive(Serialize)]
+pub struct GetExchangeInfo<'a> {
+    pub exchange: &'a str,
+}
+
+#[derive(Serialize)]
+pub struct ListCandles<'a> {
+    pub exchange: &'a str,
+    pub symbol: &'a str,
+    pub interval: Interval,
+    pub start: Timestamp,
+    pub end: Timestamp,
+    pub type_: CandleType,
+}
+
+#[derive(Serialize)]
+pub struct MapAssetPrices<'a> {
+    pub exchange: &'a str,
+    pub assets: &'a [&'a str],
+    pub interval: Interval,
+    pub start: Timestamp,
+    pub end: Timestamp,
+    pub target_asset: &'a str,
+}
+
 impl Client {
     pub fn new(url: &str) -> Self {
         Self {
@@ -32,14 +57,15 @@ impl Client {
         }
     }
 
-    pub async fn get_exchange_info(&self, exchange: &str) -> Result<ExchangeInfo, Error> {
+    pub async fn get_exchange_info(&self, request: GetExchangeInfo<'_>) -> Result<ExchangeInfo, Error> {
         let exchange_info = self
             .client
-            .get(format!("{}/exchange_info", self.url))
-            .query(&[("exchange", exchange)])
+            .post(format!("{}/exchange_info", self.url))
+            .json(&request)
             .send()
             .await?
-            .error_for_juno_status().await?
+            .error_for_juno_status()
+            .await?
             .json()
             .await?;
         Ok(exchange_info)
@@ -47,27 +73,16 @@ impl Client {
 
     pub async fn list_candles(
         &self,
-        exchange: &str,
-        symbol: &str,
-        interval: Interval,
-        start: Timestamp,
-        end: Timestamp,
-        type_: CandleType,
+        request: ListCandles<'_>,
     ) -> Result<Vec<Candle>, Error> {
         let candles = self
             .client
-            .get(format!("{}/candles", self.url))
-            .query(&[
-                ("exchange", exchange),
-                ("symbol", symbol),
-                ("interval", &interval.0.to_string()),
-                ("start", &start.0.to_string()),
-                ("end", &end.0.to_string()),
-                ("type", type_.as_ref()),
-            ])
+            .post(format!("{}/candles", self.url))
+            .json(&request)
             .send()
             .await?
-            .error_for_juno_status().await?
+            .error_for_juno_status()
+            .await?
             .json()
             .await?;
         Ok(candles)
@@ -75,40 +90,30 @@ impl Client {
 
     pub async fn list_candles_fill_missing_with_none(
         &self,
-        exchange: &str,
-        symbol: &str,
-        interval: Interval,
-        start: Timestamp,
-        end: Timestamp,
-        type_: CandleType,
+        request: ListCandles<'_>,
     ) -> Result<Vec<Option<Candle>>, Error> {
         let candles = self
             .client
-            .get(format!("{}/candles_fill_missing_with_none", self.url))
-            .query(&[
-                ("exchange", exchange),
-                ("symbol", symbol),
-                ("interval", &interval.0.to_string()),
-                ("start", &start.0.to_string()),
-                ("end", &end.0.to_string()),
-                ("type", type_.as_ref()),
-            ])
+            .post(format!("{}/candles_fill_missing_with_none", self.url))
+            .json(&request)
             .send()
             .await?
-            .error_for_juno_status().await?
+            .error_for_juno_status()
+            .await?
             .json()
             .await?;
         Ok(candles)
     }
 
-    pub async fn list_candle_intervals(&self, exchange: &str) -> Result<Vec<Interval>, Error> {
+    pub async fn list_candle_intervals(&self, request: GetExchangeInfo<'_>) -> Result<Vec<Interval>, Error> {
         let client = reqwest::Client::new();
         let intervals = client
-            .get(format!("{}/candle_intervals", self.url))
-            .query(&[("exchange", exchange)])
+            .post(format!("{}/candle_intervals", self.url))
+            .json(&request)
             .send()
             .await?
-            .error_for_juno_status().await?
+            .error_for_juno_status()
+            .await?
             .json()
             .await?;
         Ok(intervals)
@@ -116,27 +121,16 @@ impl Client {
 
     pub async fn map_asset_prices(
         &self,
-        exchange: &str,
-        assets: &[&str],
-        interval: Interval,
-        start: Timestamp,
-        end: Timestamp,
-        target_asset: &str,
+        request: MapAssetPrices<'_>,
     ) -> Result<HashMap<String, Vec<f64>>, Error> {
         let prices = self
             .client
-            .get(format!("{}/prices", self.url))
-            .query(&[
-                ("exchange", exchange),
-                ("assets", &assets.join(",")),
-                ("interval", &interval.0.to_string()),
-                ("start", &start.0.to_string()),
-                ("end", &end.0.to_string()),
-                ("target_asset", target_asset),
-            ])
+            .post(format!("{}/prices", self.url))
+            .json(&request)
             .send()
             .await?
-            .error_for_juno_status().await?
+            .error_for_juno_status()
+            .await?
             .json()
             .await?;
         Ok(prices)

@@ -192,7 +192,7 @@ fn par_optimize(
                                 },
                             );
                             let stats =
-                                Statistics::compose(&summary, symbol, &prices, stats_interval);
+                                Statistics::compose(&summary, symbol, prices, stats_interval);
                             (symbol.clone(), stats)
                         })
                         .collect();

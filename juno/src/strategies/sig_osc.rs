@@ -12,7 +12,7 @@ use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cmp::{max, min};
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum OscFilter {
     Enforce,
     Prevent,
