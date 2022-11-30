@@ -30,16 +30,11 @@ async fn main() -> Result<()> {
     let juno_core_client = Arc::new(juno_core::Client::new("http://localhost:3030"));
 
     let app = Router::<Arc<juno_core::Client>>::new()
-        .layer(
-            CorsLayer::new()
-                .allow_origin("*".parse::<HeaderValue>()?)
-                .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
-                .allow_headers([http::header::CONTENT_TYPE]),
-        )
         .route("/", get(|| async { "hello world" }))
         .nest("/backtest", routes::backtest())
         .nest("/optimize", routes::optimize())
-        .with_state(juno_core_client);
+        .with_state(juno_core_client)
+        .layer(CorsLayer::permissive());
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 4040));
     tracing::info!("listening on {}", addr);
