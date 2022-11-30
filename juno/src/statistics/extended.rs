@@ -2,7 +2,7 @@ use super::SQRT_365;
 use crate::{
     math::{mean, std_deviation},
     trading::{Position, TradingSummary},
-    Interval, Timestamp,
+    Interval, SymbolExt, Timestamp,
 };
 // use ndarray::prelude::*;
 // use ndarray_stats::CorrelationExt;
@@ -34,12 +34,12 @@ pub struct ExtendedStatistics {
 impl ExtendedStatistics {
     pub fn compose(
         summary: &TradingSummary,
-        base_prices: &[f64],
-        quote_prices: Option<&[f64]>,
+        symbol: &str,
+        prices: &HashMap<String, Vec<f64>>,
         // _benchmark_g_returns: &[f64],
         interval: Interval,
     ) -> Self {
-        let asset_performance = get_asset_performance(summary, base_prices, quote_prices, interval);
+        let asset_performance = get_asset_performance(summary, symbol, prices, interval);
         let portfolio_performance = asset_performance
             .iter()
             .map(|d| d.values().sum())
@@ -96,10 +96,14 @@ fn map_period_deltas_from_summary(
 
 fn get_asset_performance(
     summary: &TradingSummary,
-    base_prices: &[f64],
-    quote_prices: Option<&[f64]>,
+    symbol: &str,
+    prices: &HashMap<String, Vec<f64>>,
     interval: Interval,
 ) -> Vec<HashMap<Asset, f64>> {
+    println!("{}", symbol.quote_asset());
+    let base_prices = &prices.get(symbol.base_asset()).unwrap();
+    let quote_prices = &prices.get(symbol.quote_asset()).unwrap();
+
     let summary_period_deltas = map_period_deltas_from_summary(summary, interval);
 
     let start = summary.start.floor(interval);
@@ -115,7 +119,7 @@ fn get_asset_performance(
     period_asset_performances.push(get_asset_performances_from_holdings(
         &asset_holdings,
         base_prices[0],
-        quote_prices.map(|p| p[0]),
+        quote_prices[0],
     ));
 
     for i in 0..length {
@@ -133,7 +137,7 @@ fn get_asset_performance(
         period_asset_performances.push(get_asset_performances_from_holdings(
             &asset_holdings,
             base_prices[price_i],
-            quote_prices.map(|p| p[price_i]),
+            quote_prices[price_i],
         ));
     }
 
@@ -143,7 +147,7 @@ fn get_asset_performance(
 fn get_asset_performances_from_holdings(
     asset_holdings: &HashMap<Asset, f64>,
     base_price: f64,
-    quote_price: Option<f64>,
+    quote_price: f64,
 ) -> HashMap<Asset, f64> {
     // Update asset performance (mark-to-market portfolio).
     let mut asset_performances = HashMap::new();
@@ -151,7 +155,7 @@ fn get_asset_performances_from_holdings(
         let entry = asset_performances.entry(*asset).or_insert(0.0);
         *entry = match asset {
             Asset::Base => asset_holdings[asset] * base_price,
-            Asset::Quote => asset_holdings[asset] * quote_price.unwrap_or(1.0),
+            Asset::Quote => asset_holdings[asset] * quote_price,
         }
     }
     asset_performances
@@ -232,8 +236,8 @@ fn calculate_statistics(performance: &[f64]) -> ExtendedStatistics {
 
 pub fn get_sharpe_ratio(
     summary: &TradingSummary,
-    base_prices: &[f64],
-    quote_prices: Option<&[f64]>,
+    symbol: &str,
+    prices: &HashMap<String, Vec<f64>>,
     interval: Interval,
 ) -> f64 {
     let period_deltas = map_period_deltas_from_summary(summary, interval);
@@ -245,10 +249,10 @@ pub fn get_sharpe_ratio(
     let mut base_holding = 0.0;
     let mut quote_holding = summary.quote;
 
-    let mut prev_performance = match quote_prices {
-        Some(quote_prices) => quote_holding * quote_prices[0], // 0 is open price.
-        None => quote_holding,
-    };
+    let base_prices = &prices[symbol.base_asset()];
+    let quote_prices = &prices[symbol.quote_asset()];
+
+    let mut prev_performance = quote_holding * quote_prices[0];
 
     let mut g_returns = Vec::with_capacity(length);
     let mut sum_g_returns = 0.0;
@@ -264,11 +268,8 @@ pub fn get_sharpe_ratio(
             }
         }
         let price_i = i + 1; // Offset the open price.
-        let performance = base_holding * base_prices[price_i]
-            + match quote_prices {
-                Some(quote_prices) => quote_holding * quote_prices[price_i],
-                None => quote_holding,
-            };
+        let performance =
+            base_holding * base_prices[price_i] + quote_holding * quote_prices[price_i];
 
         let a_return = performance / prev_performance - 1.0;
 
@@ -304,8 +305,8 @@ pub fn get_sharpe_ratio(
 
 pub fn get_sortino_ratio(
     summary: &TradingSummary,
-    base_prices: &[f64],
-    quote_prices: Option<&[f64]>,
+    symbol: &str,
+    prices: &HashMap<String, Vec<f64>>,
     interval: Interval,
 ) -> f64 {
     let period_deltas = map_period_deltas_from_summary(summary, interval);
@@ -317,10 +318,10 @@ pub fn get_sortino_ratio(
     let mut base_holding = 0.0;
     let mut quote_holding = summary.quote;
 
-    let mut prev_performance = match quote_prices {
-        Some(quote_prices) => quote_holding * quote_prices[0], // 0 is open price.
-        None => quote_holding,
-    };
+    let base_prices = &prices[symbol.base_asset()];
+    let quote_prices = &prices[symbol.quote_asset()];
+
+    let mut prev_performance = quote_holding * quote_prices[0]; // 0 is open price.
 
     let mut g_returns = Vec::with_capacity(length);
     let mut sum_g_returns = 0.0;
@@ -338,11 +339,8 @@ pub fn get_sortino_ratio(
             }
         }
         let price_i = i + 1; // Offset the open price.
-        let performance = base_holding * base_prices[price_i]
-            + match quote_prices {
-                Some(quote_prices) => quote_holding * quote_prices[price_i],
-                None => quote_holding,
-            };
+        let performance =
+            base_holding * base_prices[price_i] + quote_holding * quote_prices[price_i];
 
         let a_return = performance / prev_performance - 1.0;
 
@@ -396,11 +394,15 @@ mod tests {
     fn test_nonoptimized_stats_same_as_optimized() {
         let summary = test_utils::get_populated_trading_summary();
         let base_prices = vec![1.0; 11];
+        let quote_prices = vec![1.0; 11];
+        let mut prices = HashMap::with_capacity(2);
+        prices.insert("eth".to_owned(), base_prices);
+        prices.insert("btc".to_owned(), quote_prices);
 
-        let stats = ExtendedStatistics::compose(&summary, &base_prices, None, 1.into());
+        let stats = ExtendedStatistics::compose(&summary, "eth-btc", &prices, 1.into());
 
-        let opt_sharpe = get_sharpe_ratio(&summary, &base_prices, None, 1.into());
-        let opt_sortino = get_sortino_ratio(&summary, &base_prices, None, 1.into());
+        let opt_sharpe = get_sharpe_ratio(&summary, "eth-btc", &prices, 1.into());
+        let opt_sortino = get_sortino_ratio(&summary, "eth-btc", &prices, 1.into());
 
         assert_eq!(stats.sharpe_ratio, opt_sharpe);
         assert_eq!(stats.sortino_ratio, opt_sortino);

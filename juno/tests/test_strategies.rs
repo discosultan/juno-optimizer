@@ -4,14 +4,14 @@ use juno::{
     stop_loss::{self, StopLossParams},
     strategies::{self, StrategyParams},
     take_profit::{self, TakeProfitParams},
-    trading::{trade, MissedCandlePolicy, TraderParams, TradingParams, TradingSummary},
+    trading::{trade, TradeInput, TraderParams, TradingParams, TradingSummary},
     Candle, ExchangeInfo, Interval,
 };
 use once_cell::sync::Lazy;
 use std::{collections::HashMap, fs::File};
 
 static EXPECTED_STATS: Lazy<HashMap<String, CoreStatistics>> = Lazy::new(|| {
-    let path = "./tests/data/strategies_2021-04-08.json";
+    let path = "./tests/data/strategies.json";
     let file = File::open(path).expect("unable to open file");
     serde_json::from_reader(file).expect("unable to deserialize json")
 });
@@ -113,17 +113,18 @@ fn test_strategy(strategy: StrategyParams, name: &str) {
             // take_profit: TakeProfitParams::Noop(take_profit::NoopParams {}),
             trader: TraderParams {
                 interval: Interval::DAY_MS,
-                missed_candle_policy: MissedCandlePolicy::Ignore,
             },
         },
-        &CANDLES,
-        &EXCHANGE_INFO.fees["eth-btc"],
-        &EXCHANGE_INFO.filters["eth-btc"],
-        &EXCHANGE_INFO.borrow_info["eth-btc"]["eth"],
-        2,
-        1.0,
-        true,
-        true,
+        &TradeInput {
+            candles: &CANDLES,
+            fees: &EXCHANGE_INFO.fees["eth-btc"],
+            filters: &EXCHANGE_INFO.filters["eth-btc"],
+            borrow_info: &EXCHANGE_INFO.borrow_info["eth-btc"]["eth"],
+            margin_multiplier: 2,
+            quote: 1.0,
+            long: true,
+            short: true,
+        },
     );
     // dump_summary(&summary);
     let output = CoreStatistics::compose(&summary);

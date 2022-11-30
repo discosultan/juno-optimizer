@@ -4,7 +4,7 @@ use juno::{
     stop_loss::{self, StopLossParams},
     strategies::{FourWeekRuleParams, StrategyParams},
     take_profit::{self, TakeProfitParams},
-    trading::{self, MissedCandlePolicy, TraderParams, TradingParams},
+    trading::{self, TradeInput, TraderParams, TradingParams},
     BorrowInfo, Candle, Fees, Interval, Timestamp,
 };
 
@@ -42,7 +42,8 @@ fn trade_benchmark(c: &mut Criterion) {
         quote_precision: 8,
     };
     let borrow_info = BorrowInfo {
-        daily_interest_rate: 0.001,
+        interest_rate: 0.001,
+        interest_interval: 3_600_000,
         limit: 1.0,
     };
     c.bench_function("trade", |b| {
@@ -54,17 +55,18 @@ fn trade_benchmark(c: &mut Criterion) {
                     take_profit: TakeProfitParams::Noop(take_profit::NoopParams {}),
                     trader: TraderParams {
                         interval: Interval::MIN_MS,
-                        missed_candle_policy: MissedCandlePolicy::Ignore,
                     },
                 },
-                &candles,
-                &fees,
-                &filters,
-                &borrow_info,
-                2,
-                1.0,
-                true,
-                true,
+                &TradeInput {
+                    candles: &candles,
+                    fees: &fees,
+                    filters: &filters,
+                    borrow_info: &borrow_info,
+                    margin_multiplier: 2,
+                    quote: 1.0,
+                    long: true,
+                    short: true,
+                },
             )
         })
     });

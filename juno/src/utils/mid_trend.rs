@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::Advice;
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum MidTrendPolicy {
     Current,
     Previous,

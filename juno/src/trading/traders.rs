@@ -1,5 +1,5 @@
 use crate::{
-    math::{round_down, round_half_up},
+    math::{ceil_multiple, round_down, round_half_up},
     stop_loss::StopLoss,
     strategies::{Signal, StrategyMeta},
     take_profit::TakeProfit,
@@ -10,7 +10,7 @@ use crate::{
     Advice, BorrowInfo, Candle, Fees, Fill, Filters, Interval, Timestamp,
 };
 
-use super::{MissedCandlePolicy, TradingParams};
+use super::TradingParams;
 
 struct State {
     pub strategy: Box<dyn Signal>,
@@ -41,92 +41,51 @@ impl State {
     }
 }
 
-pub fn trade(
-    params: &TradingParams,
-    candles: &[Candle],
-    fees: &Fees,
-    filters: &Filters,
-    borrow_info: &BorrowInfo,
-    margin_multiplier: u32,
-    quote: f64,
-    long: bool,
-    short: bool,
-) -> TradingSummary {
+pub struct TradeInput<'a> {
+    pub candles: &'a [Candle],
+    pub fees: &'a Fees,
+    pub filters: &'a Filters,
+    pub borrow_info: &'a BorrowInfo,
+    pub margin_multiplier: u32,
+    pub quote: f64,
+    pub long: bool,
+    pub short: bool,
+}
+
+pub fn trade(params: &TradingParams, input: &TradeInput) -> TradingSummary {
     let interval = params.trader.interval;
-    let missed_candle_policy = params.trader.missed_candle_policy;
 
-    let two_interval = interval * 2;
-
-    let candles_len = candles.len();
+    let candles_len = input.candles.len();
     let (start, end) = if candles_len == 0 {
         (0.into(), Timestamp(interval.0))
     } else {
-        (candles[0].time, candles[candles_len - 1].time + interval)
+        (
+            input.candles[0].time,
+            input.candles[candles_len - 1].time + interval,
+        )
     };
 
     let strategy_meta = StrategyMeta { interval };
 
-    let mut summary = TradingSummary::new(start, end, quote);
+    let mut summary = TradingSummary::new(start, end, input.quote);
     let mut state = State::new(
-        quote,
+        input.quote,
         params.strategy.construct(&strategy_meta),
         params.stop_loss.construct(),
         params.take_profit.construct(),
     );
 
-    for candle in candles {
-        let mut exit = false;
-
-        if let Some(last_candle) = state.last_candle {
-            let diff = candle.time - last_candle.time;
-            if missed_candle_policy == MissedCandlePolicy::Restart && diff >= two_interval {
-                state.strategy = params.strategy.construct(&strategy_meta);
-            } else if missed_candle_policy == MissedCandlePolicy::Last && diff >= two_interval {
-                let num_missed = diff.0 / interval.0 - 1;
-                for i in 1..=num_missed {
-                    let missed_candle = Candle {
-                        time: last_candle.time + i * interval,
-                        open: last_candle.close,
-                        high: last_candle.close,
-                        low: last_candle.close,
-                        close: last_candle.close,
-                        volume: 0.0,
-                    };
-                    if tick(
-                        &mut state,
-                        &mut summary,
-                        fees,
-                        filters,
-                        borrow_info,
-                        margin_multiplier,
-                        interval,
-                        long,
-                        short,
-                        &missed_candle,
-                    )
-                    .is_err()
-                    {
-                        exit = true;
-                        break;
-                    }
-                }
-            }
-        }
-
-        if exit {
-            break;
-        }
-
+    for candle in input.candles {
         if tick(
             &mut state,
             &mut summary,
-            fees,
-            filters,
-            borrow_info,
-            margin_multiplier,
+            input.fees,
+            input.filters,
+            input.borrow_info,
+            input.margin_multiplier,
             interval,
-            long,
-            short,
+            input.long,
+            input.short,
             candle,
         )
         .is_err()
@@ -140,8 +99,8 @@ pub fn trade(
             Some(OpenPosition::Long(_)) => close_long_position(
                 &mut state,
                 &mut summary,
-                fees,
-                filters,
+                input.fees,
+                input.filters,
                 last_candle.time + interval,
                 last_candle.close,
                 CloseReason::Cancelled,
@@ -149,9 +108,9 @@ pub fn trade(
             Some(OpenPosition::Short(_)) => close_short_position(
                 &mut state,
                 &mut summary,
-                fees,
-                filters,
-                borrow_info,
+                input.fees,
+                input.filters,
+                input.borrow_info,
                 last_candle.time + interval,
                 last_candle.close,
                 CloseReason::Cancelled,
@@ -251,13 +210,7 @@ fn tick(
 
     if state.open_position.is_none() {
         if long && advice == Advice::Long {
-            try_open_long_position(
-                state,
-                fees,
-                filters,
-                candle.time + interval,
-                candle.close,
-            )?;
+            try_open_long_position(state, fees, filters, candle.time + interval, candle.close)?;
         } else if short && advice == Advice::Short {
             try_open_short_position(
                 state,
@@ -391,9 +344,12 @@ fn close_short_position(
     if let Some(OpenPosition::Short(pos)) = state.open_position.take() {
         let borrowed = pos.borrowed;
 
-        let duration = (time - pos.time).ceil(Interval::HOUR_MS).0 / Interval::HOUR_MS.0;
-        let hourly_interest_rate = borrow_info.daily_interest_rate / 24.0;
-        let interest = borrowed * duration as f64 * hourly_interest_rate;
+        let duration = ceil_multiple(time.0 - pos.time.0, borrow_info.interest_interval)
+            / borrow_info.interest_interval;
+        let interest = round_half_up(
+            borrowed * duration as f64 * borrow_info.interest_rate,
+            filters.base_precision,
+        );
 
         let mut size = borrowed + interest;
         let fee = round_half_up(size * fees.taker, filters.base_precision);

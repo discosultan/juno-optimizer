@@ -1,7 +1,9 @@
+pub mod symbol;
 mod interval;
 mod timestamp;
 
 pub use interval::Interval;
+pub use symbol::SymbolExt;
 pub use timestamp::Timestamp;
 
 use std::fmt;
