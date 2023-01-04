@@ -82,7 +82,7 @@ where
         on_generation(0, &generation);
         generations.push(generation);
 
-        let mut offsprings = Vec::with_capacity(population_size as usize);
+        let mut offsprings = Vec::with_capacity(population_size);
 
         for gen in 1..=generations.capacity() {
             let mut timings = Timings::default();

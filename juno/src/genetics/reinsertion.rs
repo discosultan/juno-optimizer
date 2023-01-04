@@ -61,7 +61,7 @@ impl Reinsertion for EliteReinsertion {
         let num_gen = (diff as f32 * self.generation_rate) as usize;
         let num_parents = diff - num_gen;
 
-        offsprings.extend_from_slice(&parents[..num_parents as usize]);
+        offsprings.extend_from_slice(&parents[..num_parents]);
         for _ in 0..num_gen {
             offsprings.push(Individual::generate(rng, ctx));
         }
