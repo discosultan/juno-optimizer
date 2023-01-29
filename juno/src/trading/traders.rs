@@ -122,6 +122,7 @@ pub fn trade(params: &TradingParams, input: &TradeInput) -> TradingSummary {
     summary
 }
 
+#[allow(clippy::too_many_arguments)]
 fn tick(
     mut state: &mut State,
     summary: &mut TradingSummary,
@@ -331,6 +332,7 @@ fn try_open_short_position(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn close_short_position(
     state: &mut State,
     summary: &mut TradingSummary,

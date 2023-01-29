@@ -41,7 +41,7 @@ fn calc_interval_group(group: &str) -> u64 {
             return group[0..i].parse::<u64>().unwrap() * INTERVAL_FACTOR_MAP[&group[i..]];
         }
     }
-    panic!("Invalid interval group: {}", group);
+    panic!("Invalid interval group: {group}");
 }
 
 #[derive(Debug, Default, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize)]
