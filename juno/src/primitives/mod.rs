@@ -1,5 +1,5 @@
-pub mod symbol;
 mod interval;
+pub mod symbol;
 mod timestamp;
 
 pub use interval::Interval;

@@ -70,7 +70,7 @@ impl Chromosome for TraderParams {
                     1 => ctx.intervals[0],
                     _ => *ctx.intervals.choose(rng).unwrap(),
                 }
-            },
+            }
             _ => panic!(),
         };
     }

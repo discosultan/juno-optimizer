@@ -57,7 +57,10 @@ impl Client {
         }
     }
 
-    pub async fn get_exchange_info(&self, request: GetExchangeInfo<'_>) -> Result<ExchangeInfo, Error> {
+    pub async fn get_exchange_info(
+        &self,
+        request: GetExchangeInfo<'_>,
+    ) -> Result<ExchangeInfo, Error> {
         let exchange_info = self
             .client
             .post(format!("{}/exchange_info", self.url))
@@ -71,10 +74,7 @@ impl Client {
         Ok(exchange_info)
     }
 
-    pub async fn list_candles(
-        &self,
-        request: ListCandles<'_>,
-    ) -> Result<Vec<Candle>, Error> {
+    pub async fn list_candles(&self, request: ListCandles<'_>) -> Result<Vec<Candle>, Error> {
         let candles = self
             .client
             .post(format!("{}/candles", self.url))
@@ -105,7 +105,10 @@ impl Client {
         Ok(candles)
     }
 
-    pub async fn list_candle_intervals(&self, request: GetExchangeInfo<'_>) -> Result<Vec<Interval>, Error> {
+    pub async fn list_candle_intervals(
+        &self,
+        request: GetExchangeInfo<'_>,
+    ) -> Result<Vec<Interval>, Error> {
         let client = reqwest::Client::new();
         let intervals = client
             .post(format!("{}/candle_intervals", self.url))

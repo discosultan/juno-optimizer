@@ -9,5 +9,5 @@ proc-macro = true
 
 [dependencies]
 convert_case = "0.6"
-syn = { version = "1", features = [] }
+syn = { version = "2", features = [] }
 quote = "1"

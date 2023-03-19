@@ -2,8 +2,8 @@ use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use std::borrow::Cow;
 use syn::{
-    parse_macro_input, parse_quote, Attribute, GenericParam, ItemStruct, Lit, Meta, NestedMeta,
-    Type,
+    parse_macro_input, parse_quote, token::Eq, Attribute, Expr, ExprLit, GenericParam, ItemStruct,
+    Lit, LitStr, Meta, MetaNameValue, Type,
 };
 
 use crate::util;
@@ -109,28 +109,59 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
         let mut field_attrs = field
             .attrs
             .iter()
-            .filter(|attr| !attr.path.is_ident("chromosome"))
+            .filter(|attr| !attr.path().is_ident("chromosome"))
             .map(|attr| {
-                if attr.path.is_ident("serde") {
-                    let meta = attr.parse_meta().unwrap();
-                    if let Meta::List(meta) = meta {
-                        if let NestedMeta::Meta(Meta::NameValue(meta)) = &meta.nested[0] {
-                            if meta.path.is_ident("serialize_with")
-                                || meta.path.is_ident("deserialize_with")
-                            {
-                                if let Lit::Str(value) = &meta.lit {
-                                    let meta_path = &meta.path;
-                                    let meta_lit = format!("{}_option", value.value());
-                                    return Cow::Owned(Attribute {
-                                        bracket_token: attr.bracket_token,
-                                        pound_token: attr.pound_token,
-                                        style: attr.style,
-                                        path: attr.path.clone(),
-                                        tokens: quote! { (#meta_path = #meta_lit) },
-                                    });
-                                }
-                            }
+                if attr.path().is_ident("serde") {
+                    // let meta = attr.parse_meta().unwrap();
+                    // if let Meta::List(meta) = meta {
+                    //     if let NestedMeta::Meta(Meta::NameValue(meta)) = &meta.nested[0] {
+                    //         if meta.path.is_ident("serialize_with")
+                    //             || meta.path.is_ident("deserialize_with")
+                    //         {
+                    //             if let Lit::Str(value) = &meta.lit {
+                    //                 let meta_path = &meta.path;
+                    //                 let meta_lit = format!("{}_option", value.value());
+                    //                 return Cow::Owned(Attribute {
+                    //                     bracket_token: attr.bracket_token,
+                    //                     pound_token: attr.pound_token,
+                    //                     style: attr.style,
+                    //                     path: attr.path().clone(),
+                    //                     tokens: quote! { (#meta_path = #meta_lit) },
+                    //                     meta: Meta::
+                    //                 });
+                    //             }
+                    //         }
+                    //     }
+                    // }
+
+                    let mut new_attr: Option<Attribute> = None;
+                    let parse_result = attr.parse_nested_meta(|meta| {
+                        if meta.path.is_ident("serialize_with")
+                            || meta.path.is_ident("deserialize_with")
+                        {
+                            let value = meta.value()?;
+                            let s: LitStr = value.parse()?;
+                            new_attr = Some(Attribute {
+                                bracket_token: attr.bracket_token,
+                                pound_token: attr.pound_token,
+                                style: attr.style,
+                                meta: Meta::NameValue(MetaNameValue {
+                                    path: meta.path.clone(),
+                                    eq_token: Eq::default(),
+                                    value: Expr::Lit(ExprLit {
+                                        attrs: vec![],
+                                        lit: Lit::Str(s),
+                                    }),
+                                }),
+                            });
                         }
+                        Ok(())
+                    });
+                    if parse_result.is_err() {
+                        return Cow::Borrowed(attr);
+                    };
+                    if let Some(new_attr) = new_attr {
+                        return Cow::Owned(new_attr);
                     }
                 }
                 Cow::Borrowed(attr)

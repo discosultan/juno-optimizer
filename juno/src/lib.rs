@@ -18,8 +18,8 @@ pub use crate::filters::Filters;
 pub use primitives::*;
 
 use serde::{Deserialize, Serialize};
-use strum::AsRefStr;
 use std::{collections::HashMap, ops::AddAssign};
+use strum::AsRefStr;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Advice {
